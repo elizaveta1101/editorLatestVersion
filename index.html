@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+    <link rel="stylesheet" href="./style/css/style.css">
+    <title>Рисование</title>
+</head>
+<body>  
+    <div class="editor">
+        <div class="editor__functions">
+            <label for="shape">Выберите форму для фундамента</label>
+            <select name="shape" id="shape"> 
+                <option value="0">1</option>
+                <option value="1">2</option>
+                <option value="2">3</option>
+                <option value="3">4</option>
+                <option value="4" disabled>Задать свою</option>
+            </select>
+        </div>
+        <div class="editor__interact">            
+        </div>
+        <div class="editor__buttons">
+            <button onclick="clearViewport();">Очистить</button>
+            <button onclick="set2D();">2D</button>
+            <button onclick="set3D();">3D</button>
+            <button onclick="zoomIn();">+</button>
+            <button onclick="zoomOut();">-</button>
+            <button onclick="turnLeft();">налево</button>
+            <button onclick="turnRight();">направо</button>
+            <button onclick="moveForward();">вперед</button>
+            <button onclick="moveBackward();">назад</button>
+        </div>
+        <div class="editor__values">
+            <label for="basement">Высота фундамента</label><br>
+            <input type="text" id="basement" name="basement" onchange="draw();"><br><br>
+            <label for="wall-height">Высота стен</label><br>
+            <input type="text" id="wallHeight" name="wallHeight"><br><br>
+            <label for="wall-thickness">Толщина стен</label><br>
+            <input type="text" id="wallThickness" disabled name="wallThickness"><br><br>
+        </div>
+        <button style="position: fixed; top:10%; right:10%;" onclick="makeBig();">развернуть</button>
+        <button style="position: fixed; top:15%; right:10%;" onclick="makeSmall();">свернуть</button>
+    </div>
+    <div class="interview">
+        <button id="setBasement">Выбрать фундамент</button>
+        <button id="setOuterWalls" disabled>Возвести стены</button>
+    </div>
+    <p>Алгоритм:<br>
+        Нажимаем кнопку "Выбрать фундамент"<br>
+        Устанавливаем высоту в соотвествующем поле справа<br>
+        (Форму можно поменять, выбрав из списка слева)<br>
+        Нажимаем кнопку "Возвести стены"<br>
+        Настраиваем высоту стен в поле справа<br>
+        Переключаться между видами 2D/3D можно на любом этапе
+    </p>
+    <script src="./lib/cuon-matrix.js"></script>
+    <script src="./src/createHouse.js"></script>
+</body>
+</html>

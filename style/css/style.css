@@ -1,0 +1,33 @@
+.editor {
+  display: grid;
+  grid-template-columns: [functions] 1.5fr [interact] 3fr [values] 1.5fr;
+  grid-template-rows: [editor] 550px [buttons] 20px;
+  grid-auto-flow: row;
+  justify-items: center;
+  align-items: center;
+  width: 1000px;
+  background-color: #d3ffe9;
+}
+.editor__functions {
+  grid-column: functions;
+  grid-row-start: editor;
+  grid-row-end: buttons-end;
+}
+.editor__interact {
+  grid-column: interact;
+  grid-row: editor ;
+  display: grid;
+  justify-items: center;
+}
+.editor__buttons {
+  grid-column: interact;
+  grid-row: buttons;
+}
+.editor__values {
+  grid-column: values;
+  grid-row-start: editor;
+  grid-row-end: buttons-end;
+}
+button {
+  margin: 10px auto;
+}
