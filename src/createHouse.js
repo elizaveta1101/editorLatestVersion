@@ -153,9 +153,6 @@ class sceneObject {
 let scene = {}; //объект, в котором будем хранить все элементы сцены (объект хранщий всебе объекты)
 //добавляем на сцену объект дом
 scene.house = {};
-//добавляем в дом фундамент
-// scene.house.basement = new sceneObject('basement');
-// scene.house.outerWalls = new sceneObject('outerWalls');
 
 
 
@@ -163,9 +160,10 @@ scene.house = {};
 
 /*--------------------------------------------------------------------*/
 window.onload = function () {
-    canvas.width = 500;
-    canvas.height = 500;
+    canvas.width = 600;
+    canvas.height = 600;
     document.querySelector('.editor__interact').appendChild(canvas);
+    canvas.oncontextmenu=function(){return false;};
 
     if (!gl) {
         console.log('WebGl does not work in your browser');
@@ -179,25 +177,14 @@ window.onload = function () {
     gl.viewportHeight = canvas.height;
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 
-    gl.clearColor(0.7, 0.7, 0.7, 1.0);
+    gl.clearColor(1, 1, 1, 1.0);
     gl.enable(gl.DEPTH_TEST);
-    // gl.enable(gl.POLYGON_OFFSET_FILL);
-    // gl.polygonOffset(1.0, 1.0);
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(1.0,1.0);
 
-    // canvas.onmousedown = function (event) {
-    //     drawShapeDown(event, canvas);
-    // }
-    // canvas.onmousemove = function (event) {
-    //     drawShapeMove(event, canvas);
-    // }
-    // canvas.oncontextmenu = function () {
-    //     return false;
-    // };
-    // let house = new sceneObject('Фундамент');
-    // scene.push(house);
     editorMode = false; //активируем режим простоя для редактора (нельзя рисовать)
-    setStage();
     set2D();
+    setStage();
 }
 
 function initShaders() {
@@ -268,26 +255,24 @@ function draw() {
 
 
     let count = vertexArray.length / 3;
-
-    let vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexArray), gl.STATIC_DRAW);
-
-    initVariables();
-    gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, gl.FALSE, 0, 0); //координаты нижней точки
-    gl.enableVertexAttribArray(a_Position);
+    colors = [];
+    for (let i=0; i<vertexArray/3; i++) {
+        colors.push(0,0,0);
+    }
+    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
 
     gl.drawArrays(gl.LINES, 0, count);
     modelMatrix.pushMatrix();
 
-    for (obj in scene.house) {
+    for (obj in scene.house) {  
         let dx = scene.house[obj].translation[0];
         let dy = scene.house[obj].translation[1];
         let dz = scene.house[obj].translation[2];
         modelMatrix.translate(dx, dy, dz);   
         setMatrixUniforms();
         if (viewMode === '2d') {
-            drawScheme(scene.house[obj].vertices, false, scene.house[obj].height, scene.house[obj].color);
+            drawScheme(scene.house[obj].vertices, false, scene.house[obj].height, [0,0,0]);
         } else {
             drawObject(scene.house[obj].vertices, scene.house[obj].height, scene.house[obj].color);
         }
@@ -304,13 +289,10 @@ function clearViewport() {
 }
 
 function convertToCoor(val) {
-    return val * 25 / 250;
+    return val * (canvas.width/20) / (canvas.width/2);
 }
 
-function drawShapeDown(event, canvas) {
-    scene[0].height = convertToCoor(Number(document.querySelector('#basement').value));
-    console.log(scene[0].height);
-    console.log('click');
+function drawShapeDown(event, obj) {
     if (event.which == 1) {
         let x = event.clientX;
         let y = event.clientY;
@@ -326,33 +308,25 @@ function drawShapeDown(event, canvas) {
         xc = x;
         yc = y;
 
-        // if (scene[0].vertices.length === 0) {
-        //     scene[0].vertices.push([x, y, 0]);
-        //     scene[0].vertices.push([x, y, scene[0].height]);
-        // }
-        // if (drawClick===true) {
-        //     exampleVertices.pop();
-        // }
-        exampleVertices.push([x, y]);
+        obj.vertices.push(x, y);
 
         drawClick = true;
 
     } else if (event.which == 3) {
-        console.log('here');
         if (drawClick === true) {
-            for (let i = 0; i < 2; i++) {
-                // scene[0].vertices.pop();
-            }
-            exampleVertices.pop()
+            obj.vertices.pop();
+            obj.vertices.pop();
         }
+        x=obj.vertices[0];
+        y=obj.vertices[1];
+        obj.vertices.push(x, y);
         drawClick = false;
-        // draw();
-        drawObject(exampleVertices, 10, false);
+        drawEditor(obj);
+        draw();
     }
-    console.log(exampleVertices);
 }
 
-function drawShapeMove(event, canvas) {
+function drawShapeMove(event, obj) {
     if (drawClick === true) {
 
         let x = event.clientX;
@@ -366,22 +340,13 @@ function drawShapeMove(event, canvas) {
         x = ((x - rect.left) - middle_X) / middle_X;
         y = (middle_Y - (y - rect.top)) / middle_Y;
 
-        // let len = scene[0].vertices.length;
+        let len = obj.vertices.length;
 
-        // if (len % 4 === 0) {
-        //     scene[0].vertices.pop();
-        //     scene[0].vertices.pop();
-        // }
-        // scene[0].vertices.push([x, y, 0]);
-        // scene[0].vertices.push([x, y, scene[0].height]);
-
-        let len = exampleVertices.length;
-
-        if (len > 1) {
-            exampleVertices.pop();
+        if (len%4===0) {
+            obj.vertices.pop();
+            obj.vertices.pop();
         }
-        exampleVertices.push([x, y]);
-
+        obj.vertices.push(x, y);
         draw();
     }
 }
@@ -444,12 +409,8 @@ function drawObject(vertices, height, texture) {
     for (let i = 0; i < vertexArray.length / 3; i++) {
         colors.push(texture[0], texture[1], texture[2]);
     }
-    // console.log();
     //нормали в вершинах
     normals = getNormals(vertices, '3d');
-    // normals = flipNormals(normals);
-
-
 
     if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
     if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
@@ -510,7 +471,7 @@ function drawScheme(vertices, fill, height, texture) {
     //нормали
     normals = getNormals(vertices, '2d');
 
-    if (fill && height !== 0) {
+    if (fill) {
         for (let i = 1; i < normals.length / 3 - 1; i += 2) {
             let v1 = [normals[i * 3], normals[i * 3 + 1]];
             let v2 = [normals[(i + 1) * 3], normals[(i + 1) * 3 + 1]];
@@ -573,115 +534,151 @@ function drawScheme(vertices, fill, height, texture) {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(indices), gl.STATIC_DRAW);
 
     let n = indices.length;
-    if (fill && height !== 0) {
+    if (fill) {
         gl.drawElements(gl.TRIANGLE_FAN, n, gl.UNSIGNED_BYTE, 0);
     } else {
         gl.drawElements(gl.LINE_STRIP, n, gl.UNSIGNED_BYTE, 0);
     }
 }
 
-function setStage(event) {
-    //прописать условия для установки стадии построения (будет опираться на вопросы из опроса)
-    //пока только одна стадия - построение фундамента
-    const stageButtons = document.querySelectorAll('.interview button');
-    stageButtons.forEach(btn => {
-        if (btn.id === 'setOuterWalls' && modelingStage === 'basement') {
-            btn.removeAttribute("disabled");
-        }
-        btn.onclick = function (event) {
-            let id = event.target.id;
-            switch (id) {
-                case 'setBasement':
-                    modelingStage = 'basement';
-                    stageButtons.forEach(button => {
-                        if (button.id === 'setOuterWalls' && modelingStage === 'basement') {
-                            button.removeAttribute("disabled");
-                        }
-                    });
-                    if (!scene.house.basement) {
-                        scene.house.basement = new sceneObject('basement');
-                    }
-                    for (obj in scene.house) {
-                        if (obj !== scene.house.basement) {
-                            clearObj(obj);
-                        }
-                    };
-                    break;
-                case 'setOuterWalls':
-                    // console.log(here);
+function setStage() {
+    let interviewDiv = document.querySelector('.interview div'); //поле для опроса в котором будет меняться информация
+    let stageNumber=0; //отслеживание номера стадии
+    
+    const stageInfo = document.querySelectorAll ('.stageDescriptions>div'); //описание для каждой стадии (заголовок, описнаие и требуемые действия)
+    const previousBtn = document.querySelector('.interview .previousStage');
+    const nextBtn = document.querySelector('.interview .nextStage');
+    const shapeMenu = document.querySelector('#shape');
 
-                    modelingStage = 'outerWalls';
-                    if (!scene.house.outerWalls) {
-                        scene.house.outerWalls = new sceneObject('outerWalls');
+    interviewDiv.innerHTML = stageInfo[0].innerHTML;
+    previousBtn.setAttribute('disabled', true);
+    shapeMenu.setAttribute('disabled', true);
+
+    checkStage = function() {
+        console.log(stageNumber);
+        switch (stageNumber) {
+            case 0: //построение фундамента
+                if (!scene.house.basement) {
+                    scene.house.basement = new sceneObject('basement');
+                }
+                for (obj in scene.house) {
+                    if (obj !== 'basement') {
+                        clearObj(scene.house[obj]);
                     }
-                    console.log();
-                    break;
-            }
-            createModel();
+                }
+                shapeMenu.removeAttribute('disabled');
+            
+                break;
+            case 1: //возведение стен
+                if (!scene.house.outerWalls) {
+                    scene.house.outerWalls = new sceneObject('outerWalls');
+                }
+                break;
         }
-    });
+        createModel();
+    }
+
+    checkStage();
+
+    previousBtn.onclick = function() {
+        if (stageNumber>=0) {
+            stageNumber--;            
+            interviewDiv.innerHTML = stageInfo[stageNumber].innerHTML;
+            nextBtn.removeAttribute('disabled');
+        } 
+        if (stageNumber === 0) {
+            this.setAttribute('disabled', true);
+        }
+        checkStage();
+    }
+
+    nextBtn.onclick = function() {
+        if (stageNumber<stageInfo.length-1) {
+            stageNumber++;
+            interviewDiv.innerHTML = stageInfo[stageNumber].innerHTML;
+            previousBtn.removeAttribute('disabled');
+        } 
+        if (stageNumber === stageInfo.length-1) {
+            this.setAttribute('disabled', true);
+        }
+        shapeMenu.setAttribute('disabled', true);
+        checkStage();
+    }
 }
 
 function createModel() {
     let heightInput;
     let basement = scene.house.basement;
     let outerWalls = scene.house.outerWalls;
-    // switch (modelingStage) {
-    //     case 'basement':
-    //получение вершин
-    const shapeMenu = document.querySelector('#shape');
-    let shapeNumber = shapeMenu.selectedOptions[0].value;
-    let numberOfShapes = exampleShapes.length;
-    if (shapeNumber < numberOfShapes) {
-        basement.vertices = exampleShapes[shapeNumber];
-    }
-    //!!!!!!!!!!!!!!1
-    //добавить вариант своего рисования
-    //!!!!!!!!!!!1!!!
 
-    shapeMenu.onchange = function () {
-        createModel();
-    }
-    //получение высоты
-    heightInput = document.querySelector("#basement");
-    basement.height = Number(convertToCoor(heightInput.value));
-    heightInput.onchange = function () {
-        // basement.height = Number(convertToCoor(heightInput.value));
-        // draw();
-        createModel();
-    }
-
-    //установка цвета
-    basement.color = [0, 0, 1];
-
-    // draw();
-    //     break;
-    // case 'outerWalls':
-    if (outerWalls) {
-        heightInput = document.querySelector("#wallHeight");
-        outerWalls.height = Number(convertToCoor(heightInput.value));
-        heightInput.onchange = function () {
-            // outerWalls.height = Number(convertToCoor(heightInput.value));
-            // draw();
-            createModel();
+    let clearBtn = document.querySelector('.editor__functions button');
+    clearBtn.onclick = function() {
+        for (obj in scene.house) {
+            clearObj(scene.house[obj]);
         }
+        draw();
+    }
+
+    if (basement) {
+        //получение вершин
+        const shapeMenu = document.querySelector('#shape');
+        let shapeNumber = shapeMenu.selectedOptions[0].value;
+        let numberOfShapes = exampleShapes.length;
+        
+        if (shapeNumber < numberOfShapes) {
+            basement.vertices = exampleShapes[shapeNumber]; //берется заготовленный вариант
+            clearBtn.setAttribute('disabled', true);
+        } else {
+            clearBtn.removeAttribute('disabled'); 
+            drawEditor(basement);
+        }
+
+        shapeMenu.onchange = function () {
+            if (shapeMenu.selectedOptions[0].value>=numberOfShapes) {
+                set2D();
+            } else {
+                createModel();
+            }
+        }
+        //получение высоты
+        heightInput = document.querySelector(".interview div #basement");
+        let heightInfoInput = document.querySelector(".stageDescriptions .stageBasement #basement");
+
+        if (heightInput) {
+            basement.height = Number(convertToCoor(heightInput.value));
+            heightInfoInput.setAttribute('value', heightInput.value);
+            heightInput.onchange = function () {
+                createModel();
+            }
+        }
+        
+        basement.color = [0, 0, 1];
+    }
+
+    if (outerWalls) {
+        heightInput = document.querySelector(".interview div #wallHeight");
+        let heightInfoInput = document.querySelector(".stageDescriptions .stageOuterWalls #wallHeight");
+
+        if (heightInput) {
+            outerWalls.height = Number(convertToCoor(heightInput.value));
+            heightInfoInput.setAttribute('value', heightInput.value);
+            heightInput.onchange = function () {
+                createModel();
+            }
+        }
+    
         outerWalls.vertices = basement.vertices;
         outerWalls.color = [0.8, 0, 0];
         outerWalls.translation = [0, 0, convertToCoor(basement.height)];
     }
 
-
     draw();
-    //         break;
-    // }
 }
 
 function clearObj(obj) {
     obj.vertices = [];
     obj.height = 0;
-    // this.indices=[];
     obj.color = [0, 0, 0];
-    // this.texCoord=[];
     obj.translation = [0, 0, 0];
 }
 
@@ -704,7 +701,7 @@ function set2D() {
     normalMatrix.transpose();
     setMatrixUniforms();
     viewMode = '2d';
-    draw();
+    createModel();
     disableViewButtons();
 }
 
@@ -716,8 +713,23 @@ function set3D() {
     normalMatrix.transpose();
     setMatrixUniforms();
     viewMode = '3d';
-    draw();
+    createModel();
     enableViewButtons();
+}
+
+function drawEditor(obj) {
+    editorMode=(!editorMode);
+    if (editorMode===false) {
+        canvas.onmousedown = function() {return false;}
+        canvas.onmousemove = function() {return false;}
+    } else {
+        canvas.onmousedown = function() {
+            drawShapeDown(event, obj);
+        }
+        canvas.onmousemove = function() {
+            drawShapeMove(event, obj);
+        }
+    }
 }
 
 function toDeg(rad) {

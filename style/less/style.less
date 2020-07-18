@@ -1,43 +1,65 @@
+@g-c-content: "[editor] 50% [interview] 50%";
+@g-r-content: "[content] 650px";
 
-@gridcolumns: "[functions] 1.5fr [interact] 3fr [values] 1.5fr";
-@gridrows: "[editor] 550px [buttons] 20px";
+@g-c-editor: "[functions] 1fr [interact] 4fr";
+@g-r-editor: "[editorPlace] 610px [buttons] 40px";
 
-
-.editor {
+.content {
     display: grid;
-    grid-template-columns:  e(@gridcolumns);
-    grid-template-rows:  e(@gridrows);
+    grid-template-columns: e(@g-c-content);
+    grid-template-rows: e(@g-r-content);
+    grid-auto-flow: row;
+    width: 100%;
+}
+.editor {
+    grid-column: editor;
+    grid-row: content;
+
+    display: grid;
+    grid-template-columns:  e(@g-c-editor);
+    grid-template-rows:  e(@g-r-editor);
     grid-auto-flow: row;
     justify-items: center;
     align-items: center;
-    width: 1000px;
     background-color: #d3ffe9;
+    padding: 0 10px;
 
     &__functions {
         grid-column: functions;
-        grid-row-start: editor;
+        grid-row-start: editorPlace;
         grid-row-end: buttons-end;
     }
 
     &__interact {
         grid-column: interact;
-        grid-row: editor ;
-        display: grid;
-        justify-items: center;
+        grid-row-start: editorPlace;
+        padding: 10px 0 0 0;
+        canvas {
+            border: 1px solid #000;
+        }
     }
 
     &__buttons {
         grid-column: interact;
         grid-row: buttons;
+        button {
+            margin: 0;
+        }
     }
 
-    &__values {
-        grid-column: values;
-        grid-row-start: editor;
-        grid-row-end: buttons-end;
-    }
+    // &__values {
+    //     grid-column: values;
+    //     grid-row-start: editorPlace;
+    //     grid-row-end: buttons-end;
+    // }
 }
 
 button {
     margin: 10px auto;
+}
+
+.interview {
+    grid-column: interview;
+    grid-row: content;
+    padding: 0 20px;
 }
