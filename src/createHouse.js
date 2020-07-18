@@ -555,7 +555,6 @@ function setStage() {
     shapeMenu.setAttribute('disabled', true);
 
     checkStage = function() {
-        console.log(stageNumber);
         switch (stageNumber) {
             case 0: //построение фундамента
                 if (!scene.house.basement) {

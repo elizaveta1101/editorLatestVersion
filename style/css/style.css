@@ -1,6 +1,6 @@
 .content {
   display: grid;
-  grid-template-columns: [editor] 50% [interview] 50%;
+  grid-template-columns: [editor] 60% [interview] 40%;
   grid-template-rows: [content] 650px;
   grid-auto-flow: row;
   width: 100%;
