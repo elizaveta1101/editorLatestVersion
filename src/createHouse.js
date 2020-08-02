@@ -19,6 +19,7 @@ const VSHADER =
     '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
     '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
     '  v_Color = a_Color;\n' +
+    '  gl_PointSize = 10.0;\n' +
     '}\n';
 
 
@@ -282,7 +283,7 @@ function draw() {
             setMatrixUniforms();
             if (viewMode === '2d') {
                 drawScheme(scene.house[obj].vertices, 0, [0, 0, 0], false);
-                if (scene.house[obj].height>0) {
+                if (scene.house[obj].height > 0) {
                     drawScheme(scene.house[obj].innerVertices, 0, [0, 0, 0], false);
                 }
             } else if (obj === 'outerWalls') {
@@ -501,8 +502,6 @@ function drawScheme(vertices, height, texture, fill) {
         normals = [];
         indices = [];
         vertexArray = [];
-        let innerVertex = [];
-        let averageVertex = [0, 0];
         //вершины
         for (let i = 0; i < vertices.length; i++) {
             vertexArray.push(vertices[i]);
@@ -565,13 +564,21 @@ function drawScheme(vertices, height, texture, fill) {
         } else {
             gl.drawElements(gl.LINE_STRIP, n, gl.UNSIGNED_BYTE, 0);
         }
+
+        let center = getPolygonCenter(vertices);
+        center.push(0.0);
+        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(center), 3)) return -1;
+        let vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(center), gl.STATIC_DRAW);
+        gl.drawArrays(gl.POINTS, 0, 1);
     } else {
         return;
     }
 }
 
 function drawWalls(obj) {
-    if (obj.innerVertices.length>0 && obj.height>0) {
+    if (obj.innerVertices.length > 0 && obj.height > 0) {
         //внешние
         drawObject(obj.vertices, obj.height, obj.color, false, false);
         //внутренние
@@ -676,7 +683,7 @@ function createModel() {
                 set2D();
             } else {
                 if (outerWalls) {
-                    outerWalls.innerVertices=[];
+                    outerWalls.innerVertices = [];
                 }
                 createModel();
             }
@@ -694,7 +701,7 @@ function createModel() {
         }
 
         basement.color = [0, 0, 1];
-        
+
     }
 
     if (outerWalls) {
@@ -725,7 +732,7 @@ function createModel() {
 
         //внутренний контур стен
         if (wallWidth > 0) {
-            outerWalls.innerVertices=[];
+            outerWalls.innerVertices = [];
             let dx = dy = wallWidth;
 
             //находим среднюю вершину
@@ -733,23 +740,28 @@ function createModel() {
             let Xm = center[0];
             let Ym = center[1];
 
-            //получаем новые вершины
-            for (let i = 0; i < outerWalls.vertices.length; i += 2) {
-                x = outerWalls.vertices[i];
-                y = outerWalls.vertices[i + 1];
-                if (x < Xm) {
-                    outerWalls.innerVertices.push(x + dx);
-                } else {
-                    outerWalls.innerVertices.push(x - dx);
-                }
-                if (y < Ym) {
-                    outerWalls.innerVertices.push(y + dy);
-                } else {
-                    outerWalls.innerVertices.push(y - dy);
+            if (checkSymmetry(outerWalls.vertices)) {
+                outerWalls.vertices.forEach((coor, i) => {
+                    outerWalls.innerVertices.push(center[i % 2] + 0.8 * (coor - center[i % 2]));
+                });
+            } else {
+                // //получаем новые вершины
+                for (let i = 0; i < outerWalls.vertices.length; i += 2) {
+                    x = outerWalls.vertices[i];
+                    y = outerWalls.vertices[i + 1];
+                    if (x < Xm) {
+                        outerWalls.innerVertices.push(x + dx);
+                    } else {
+                        outerWalls.innerVertices.push(x - dx);
+                    }
+                    if (y < Ym) {
+                        outerWalls.innerVertices.push(y + dy);
+                    } else {
+                        outerWalls.innerVertices.push(y - dy);
+                    }
                 }
             }
         }
-
     }
 
     //этажи
@@ -929,14 +941,20 @@ function getPolygonCenter(vertices) {
     return [x, y];
 }
 
-function scaleVertex(k, vertices)
-{
-    let center = getPolygonCenter(vertices);
-    let result = [];
-    vertices.forEach((coor, i) => {
-        result.push(center[i % 2] + k * (coor - center[i % 2]));
-    });
-    return result;
+function checkSymmetry(vertices) {
+    let sumLeft = 0, sumRight = 0;
+    for (let i = 1; i < vertices.length; i += 2) {
+        if (vertices[i] > 0) {
+            sumLeft += vertices[i];
+        } else {
+            sumRight += vertices[i];
+        }
+    }
+    if (sumRight === sumLeft) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 function zoomIn() {
