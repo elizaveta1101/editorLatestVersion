@@ -565,13 +565,14 @@ function drawScheme(vertices, height, texture, fill) {
             gl.drawElements(gl.LINE_STRIP, n, gl.UNSIGNED_BYTE, 0);
         }
 
-        let center = getPolygonCenter(vertices);
-        center.push(0.0);
-        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(center), 3)) return -1;
-        let vertexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(center), gl.STATIC_DRAW);
-        gl.drawArrays(gl.POINTS, 0, 1);
+        //барицентр
+        // let center = getPolygonCenter(vertices);
+        // center.push(0.0);
+        // if (!initArrayBuffer(gl, 'a_Position', new Float32Array(center), 3)) return -1;
+        // let vertexBuffer = gl.createBuffer();
+        // gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(center), gl.STATIC_DRAW);
+        // gl.drawArrays(gl.POINTS, 0, 1);
     } else {
         return;
     }
@@ -943,14 +944,14 @@ function getPolygonCenter(vertices) {
 
 function checkSymmetry(vertices) {
     let sumLeft = 0, sumRight = 0;
-    for (let i = 1; i < vertices.length; i += 2) {
+    for (let i = 0; i < vertices.length; i += 2) {
         if (vertices[i] > 0) {
             sumLeft += vertices[i];
         } else {
             sumRight += vertices[i];
         }
     }
-    if (sumRight === sumLeft) {
+    if (Math.abs(sumRight)<=Math.abs(sumLeft)*1.1 && Math.abs(sumRight)>=Math.abs(sumLeft)*0.9) {
         return true;
     } else {
         return false;
