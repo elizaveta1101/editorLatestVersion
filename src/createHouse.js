@@ -35,7 +35,8 @@ const FSHADER =
     'void main() {\n' +
     '  vec3 normal = normalize(v_Normal);\n' +
     '  vec3 lightDirection = normalize(u_LightPosition - v_Position);\n' +
-    '  float nDotL = max(dot(lightDirection, normal), 0.0);\n' +
+    // '  float nDotL = max(dot(lightDirection, normal), 0.0);\n' + 
+    '  float nDotL = abs(dot(lightDirection, normal));\n' + //правильное освещение задних граней
     '  vec3 diffuse = u_LightColor * v_Color.rgb * nDotL;\n' +
     '  vec3 ambient = u_AmbientLight * v_Color.rgb;\n' +
     '  gl_FragColor = vec4(diffuse + ambient, v_Color.a);\n' +
@@ -107,11 +108,11 @@ let exampleShapes = [
     -0.5, 0.5,
     -0.5, 0.7],
 
-    [0.0, 0.5,
+    [-0.5, 0.5,
         0.5, 0.5,
-        0.5, 0.0,
-        0.0, 0.0,
-        0.0, 0.5],
+        0.5, -0.5,
+    -0.5, -0.5,
+    -0.5, 0.5],
 
     [-0.1, 0.4,
         0.1, 0.4,
@@ -139,14 +140,21 @@ class sceneObject {
     constructor(nameObj) {
         this.name = nameObj;
         this.vertices = [];
+        this.innerVertices = [];
         this.height = 0;
-        // this.indices=[];
         this.color = [0, 0, 0];
         // this.texCoord=[];
         this.translation = [0, 0, 0];
     }
     setParent(parentObj) {
         this.parent = parentObj;
+    }
+    getUpVertices() {
+        let upVertices = [];
+        for (let i = 0; i < this.vertices.length; i += 2) {
+            upVertices.push(this.vertices[i], this.vertices[i + 1], this.innerVertices[i], this.innerVertices[i + 1]);
+        }
+        return upVertices;
     }
 }
 
@@ -163,7 +171,7 @@ window.onload = function () {
     canvas.width = 600;
     canvas.height = 600;
     document.querySelector('.editor__interact').appendChild(canvas);
-    canvas.oncontextmenu=function(){return false;};
+    canvas.oncontextmenu = function () { return false; };
 
     if (!gl) {
         console.log('WebGl does not work in your browser');
@@ -180,7 +188,7 @@ window.onload = function () {
     gl.clearColor(1, 1, 1, 1.0);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.POLYGON_OFFSET_FILL);
-    gl.polygonOffset(1.0,1.0);
+    gl.polygonOffset(1.0, 1.0);
 
     editorMode = false; //активируем режим простоя для редактора (нельзя рисовать)
     set2D();
@@ -238,7 +246,7 @@ function initVariables() {
     }
 
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
-    gl.uniform3f(u_LightPosition, -2.0, -3.0, 2.0);
+    gl.uniform3f(u_LightPosition, -2.0, -3.0, 3.0);
     gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
 }
 
@@ -256,8 +264,8 @@ function draw() {
 
     let count = vertexArray.length / 3;
     colors = [];
-    for (let i=0; i<vertexArray/3; i++) {
-        colors.push(0,0,0);
+    for (let i = 0; i < vertexArray / 3; i++) {
+        colors.push(0, 0, 0);
     }
     if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
     if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
@@ -265,16 +273,31 @@ function draw() {
     gl.drawArrays(gl.LINES, 0, count);
     modelMatrix.pushMatrix();
 
-    for (obj in scene.house) {  
-        let dx = scene.house[obj].translation[0];
-        let dy = scene.house[obj].translation[1];
-        let dz = scene.house[obj].translation[2];
-        modelMatrix.translate(dx, dy, dz);   
-        setMatrixUniforms();
-        if (viewMode === '2d') {
-            drawScheme(scene.house[obj].vertices, false, scene.house[obj].height, [0,0,0]);
-        } else {
-            drawObject(scene.house[obj].vertices, scene.house[obj].height, scene.house[obj].color);
+    for (obj in scene.house) {
+        if (obj !== 'floors') {
+            let dx = scene.house[obj].translation[0];
+            let dy = scene.house[obj].translation[1];
+            let dz = scene.house[obj].translation[2];
+            modelMatrix.translate(dx, dy, dz);
+            setMatrixUniforms();
+            if (viewMode === '2d') {
+                drawScheme(scene.house[obj].vertices, 0, [0, 0, 0], false);
+                if (scene.house[obj].height>0) {
+                    drawScheme(scene.house[obj].innerVertices, 0, [0, 0, 0], false);
+                }
+            } else if (obj === 'outerWalls') {
+                for (let i = 0; i < scene.house.floors - 1; i++) {
+                    drawWalls(scene.house[obj]);
+                    modelMatrix.translate(0, 0, scene.house[obj].height);
+                    setMatrixUniforms();
+                    drawObject(scene.house[obj].vertices, scene.house.basement.height / 2, scene.house.basement.color, 'fan', false);
+                    modelMatrix.translate(0, 0, scene.house.basement.height / 2);
+                    setMatrixUniforms();
+                }
+                drawWalls(scene.house[obj]);
+            } else {
+                drawObject(scene.house[obj].vertices, scene.house[obj].height, scene.house[obj].color, 'fan', false);
+            }
         }
     }
 
@@ -289,7 +312,7 @@ function clearViewport() {
 }
 
 function convertToCoor(val) {
-    return val * (canvas.width/20) / (canvas.width/2);
+    return val * (canvas.width / 20) / (canvas.width / 2);
 }
 
 function drawShapeDown(event, obj) {
@@ -317,8 +340,8 @@ function drawShapeDown(event, obj) {
             obj.vertices.pop();
             obj.vertices.pop();
         }
-        x=obj.vertices[0];
-        y=obj.vertices[1];
+        x = obj.vertices[0];
+        y = obj.vertices[1];
         obj.vertices.push(x, y);
         drawClick = false;
         drawEditor(obj);
@@ -342,7 +365,7 @@ function drawShapeMove(event, obj) {
 
         let len = obj.vertices.length;
 
-        if (len%4===0) {
+        if (len % 4 === 0) {
             obj.vertices.pop();
             obj.vertices.pop();
         }
@@ -375,177 +398,194 @@ function initArrayBuffer(gl, attribute, data, num) {
 }
 
 // новый вариант построения фигуры с применением цвета и нормалей
-function drawObject(vertices, height, texture) {
-    colors = [];
-    normals = [];
-    indices = [];
-
-    vertexArray = [];
-
-    // Create a cube
-    //    A0----- B0
-    //   /|      /|
-    //  D0------C0|
-    //  | |     | |
-    //  | |A----|-|B
-    //  |/      |/
-    //  D-------C
-    // Coordinates
-
-    //координаты вершин
-    let k = 0;
-    for (let i = 0; i < vertices.length - 2; i += 2) {
-        vertexArray.push(vertices[i], vertices[i + 1], k % 2 === 0 ? 0.0 : convertToCoor(height)); //A, B, ...
-        k++;
-        vertexArray.push(vertices[i], vertices[i + 1], k % 2 === 0 ? 0.0 : convertToCoor(height)); //A0, B0, ...
-        k++;
-        vertexArray.push(vertices[i + 2], vertices[i + 3], k % 2 === 0 ? 0.0 : convertToCoor(height)); //B, C, ...
-        k++;
-        vertexArray.push(vertices[i + 2], vertices[i + 3], k % 2 === 0 ? 0.0 : convertToCoor(height)); //B0, C0, ...
-        k++;
-    }
-
-    //цвета вершин
-    for (let i = 0; i < vertexArray.length / 3; i++) {
-        colors.push(texture[0], texture[1], texture[2]);
-    }
-    //нормали в вершинах
-    normals = getNormals(vertices, '3d');
-
-    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), 3)) return -1;
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-    //    1------ 3
-    //   /|      /|
-    //  7-------5 |
-    //  | |     | |
-    //  | |0----|-|2
-    //  |/      |/
-    //  6-------4
-    // Coordinates
-
-    //индексы
-    for (let i = 0; i < vertexArray.length / 3 - 3; i += 4) {
-        indices.push(i, i + 1, i + 2, i + 1, i + 2, i + 3);
-        //0, 1, 2, 1, 2, 3,
-        //4,5,6, 5,6,7, ...
-    }
-
-    let indexBuffer = gl.createBuffer();
-    if (!indexBuffer) {
-        console.log('Failed to create the buffer object');
-        return false;
-    }
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(indices), gl.STATIC_DRAW);
-
-    let n = indices.length;
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
-
-    drawScheme(vertices, true, height, texture);
-}
-
-function drawScheme(vertices, fill, height, texture) {
-    colors = [];
-    normals = [];
-    indices = [];
-    vertexArray = [];
-    let innerVertex = [];
-    let averageVertex = [0, 0];
-    //вершины
-    for (let i = 0; i < vertices.length; i++) {
-        vertexArray.push(vertices[i]);
-        if (i % 2 === 1) {
-            vertexArray.push(convertToCoor(height));
-        }
-    }
-
-    //цвета вершин
-    for (let i = 0; i < vertexArray.length / 3; i++) {
-        colors.push(texture[0], texture[1], texture[2]);
-    }
-
-    //нормали
-    normals = getNormals(vertices, '2d');
-
-    if (fill) {
-        for (let i = 1; i < normals.length / 3 - 1; i += 2) {
-            let v1 = [normals[i * 3], normals[i * 3 + 1]];
-            let v2 = [normals[(i + 1) * 3], normals[(i + 1) * 3 + 1]];
-            let cos = vectorAngle(v1, v2);
-            if (cos <= 0 && cos > -1) {
-                let num = (i + 1) / 2;
-                innerVertex.push(vertexArray[num * 3], vertexArray[num * 3 + 1]);
-            }
-        }
-
-        let len = normals.length;
-        let v1 = [normals[0], normals[1]];
-        let v2 = [normals[len - 3], normals[len - 2]];
-        let cos = vectorAngle(v1, v2);
-
-        if (cos <= 0 && cos > -1) {
-            innerVertex.push(vertexArray[0], vertexArray[1]);
-        }
-
-        for (let i = 0; i < innerVertex.length; i += 2) {
-            averageVertex[0] += innerVertex[i];
-            averageVertex[1] += innerVertex[i + 1];
-        }
-        averageVertex[0] /= innerVertex.length / 2;
-        averageVertex[1] /= innerVertex.length / 2;
-
-        if (innerVertex.length > 0) {
-            vertexArray.unshift(averageVertex[0], averageVertex[1], convertToCoor(height));
-        }
-
-        normals = [];
-        for (let i = 0; i < vertexArray.length / 3; i++) {
-            normals.push(0, 0, 1);
-        }
-
+function drawObject(vertices, height, texture, fill, flip) {
+    if (vertices) {
         colors = [];
+        normals = [];
+        indices = [];
+
+        vertexArray = [];
+
+        // Create a cube
+        //    A0----- B0
+        //   /|      /|
+        //  D0------C0|
+        //  | |     | |
+        //  | |A----|-|B
+        //  |/      |/
+        //  D-------C
+        // Coordinates
+
+        //координаты вершин
+        let k = 0;
+        for (let i = 0; i < vertices.length - 2; i += 2) {
+            vertexArray.push(vertices[i], vertices[i + 1], k % 2 === 0 ? 0.0 : height); //A, B, ...
+            k++;
+            vertexArray.push(vertices[i], vertices[i + 1], k % 2 === 0 ? 0.0 : height); //A0, B0, ...
+            k++;
+            vertexArray.push(vertices[i + 2], vertices[i + 3], k % 2 === 0 ? 0.0 : height); //B, C, ...
+            k++;
+            vertexArray.push(vertices[i + 2], vertices[i + 3], k % 2 === 0 ? 0.0 : height); //B0, C0, ...
+            k++;
+        }
+
+        //цвета вершин
         for (let i = 0; i < vertexArray.length / 3; i++) {
             colors.push(texture[0], texture[1], texture[2]);
         }
-    }
+        //нормали в вершинах
+        normals = getNormals(vertices, '3d');
+        // if (flip) {
+        //     normals = flipNormals(normals);
+        // }
 
-    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), 3)) return -1;
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-    //индексы
-    for (let i = 0; i < vertexArray.length; i += 3) {
-        indices.push(i / 3);
-        //0, 1, 2, 3, 4, 5, 6...
-    }
+        //    1------ 3
+        //   /|      /|
+        //  7-------5 |
+        //  | |     | |
+        //  | |0----|-|2
+        //  |/      |/
+        //  6-------4
+        // Coordinates
 
-    let indexBuffer = gl.createBuffer();
-    if (!indexBuffer) {
-        console.log('Failed to create the buffer object');
-        return false;
-    }
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(indices), gl.STATIC_DRAW);
+        //индексы
+        if (flip) {
+            // for (let i = vertexArray.length / 3-1; i > 4; i -= 4) {
+            //     indices.push(i, i-1, i-2, i-1, i-2, i-3);
+            //     //... 7,6,5, 6,5,4,
+            //     //3,2,1, 2,1,0
+            // }
+            for (let i = 0; i < vertexArray.length / 3 - 3; i += 4) {
+                indices.push(i + 2, i + 1, i, i + 3, i + 2, i + 1);
+                //0, 1, 2, 1, 2, 3,
+                //4,5,6, 5,6,7, ...
+            }
+        } else {
+            for (let i = 0; i < vertexArray.length / 3 - 3; i += 4) {
+                indices.push(i, i + 1, i + 2, i + 1, i + 2, i + 3);
+                //0, 1, 2, 1, 2, 3,
+                //4,5,6, 5,6,7, ...
+            }
+        }
 
-    let n = indices.length;
-    if (fill) {
-        gl.drawElements(gl.TRIANGLE_FAN, n, gl.UNSIGNED_BYTE, 0);
+
+        let indexBuffer = gl.createBuffer();
+        if (!indexBuffer) {
+            console.log('Failed to create the buffer object');
+            return false;
+        }
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(indices), gl.STATIC_DRAW);
+
+        let n = indices.length;
+        gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+
+        if (fill) {
+            drawScheme(vertices, height, texture, 'fan');
+        }
     } else {
-        gl.drawElements(gl.LINE_STRIP, n, gl.UNSIGNED_BYTE, 0);
+        return;
+    }
+
+}
+
+function drawScheme(vertices, height, texture, fill) {
+    if (vertices) {
+        colors = [];
+        normals = [];
+        indices = [];
+        vertexArray = [];
+        let innerVertex = [];
+        let averageVertex = [0, 0];
+        //вершины
+        for (let i = 0; i < vertices.length; i++) {
+            vertexArray.push(vertices[i]);
+            if (i % 2 === 1) {
+                vertexArray.push(height);
+            }
+        }
+
+        //цвета вершин
+        for (let i = 0; i < vertexArray.length / 3; i++) {
+            colors.push(texture[0], texture[1], texture[2]);
+        }
+
+        //нормали
+        normals = getNormals(vertices, '2d');
+
+        if (fill) {
+            if (fill === 'fan') {
+                //добавление центра многоугольника для закрашивания веером
+                let center = getPolygonCenter(vertices);
+                vertexArray.unshift(center[0], center[1], height);
+            }
+
+            normals = [];
+            for (let i = 0; i < vertexArray.length / 3; i++) {
+                normals.push(0, 0, 1);
+            }
+
+            colors = [];
+            for (let i = 0; i < vertexArray.length / 3; i++) {
+                colors.push(texture[0], texture[1], texture[2]);
+            }
+        }
+
+        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), 3)) return -1;
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        //индексы
+        for (let i = 0; i < vertexArray.length; i += 3) {
+            indices.push(i / 3);
+            //0, 1, 2, 3, 4, 5, 6...
+        }
+
+        let indexBuffer = gl.createBuffer();
+        if (!indexBuffer) {
+            console.log('Failed to create the buffer object');
+            return false;
+        }
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(indices), gl.STATIC_DRAW);
+
+        let n = indices.length;
+        if (fill === 'fan') {
+            gl.drawElements(gl.TRIANGLE_FAN, n, gl.UNSIGNED_BYTE, 0);
+        } else if (fill === 'strip') {
+            gl.drawElements(gl.TRIANGLE_STRIP, n, gl.UNSIGNED_BYTE, 0);
+        } else {
+            gl.drawElements(gl.LINE_STRIP, n, gl.UNSIGNED_BYTE, 0);
+        }
+    } else {
+        return;
+    }
+}
+
+function drawWalls(obj) {
+    if (obj.innerVertices.length>0 && obj.height>0) {
+        //внешние
+        drawObject(obj.vertices, obj.height, obj.color, false, false);
+        //внутренние
+        drawObject(obj.innerVertices, obj.height, obj.color, false, false);
+        //верх
+        drawScheme(obj.getUpVertices(), obj.height, obj.color, 'strip');
     }
 }
 
 function setStage() {
     let interviewDiv = document.querySelector('.interview div'); //поле для опроса в котором будет меняться информация
-    let stageNumber=0; //отслеживание номера стадии
-    
-    const stageInfo = document.querySelectorAll ('.stageDescriptions>div'); //описание для каждой стадии (заголовок, описнаие и требуемые действия)
+    let stageNumber = 0; //отслеживание номера стадии
+
+    const stageInfo = document.querySelectorAll('.stageDescriptions>div'); //описание для каждой стадии (заголовок, описнаие и требуемые действия)
     const previousBtn = document.querySelector('.interview .previousStage');
     const nextBtn = document.querySelector('.interview .nextStage');
     const shapeMenu = document.querySelector('#shape');
@@ -554,7 +594,7 @@ function setStage() {
     previousBtn.setAttribute('disabled', true);
     shapeMenu.setAttribute('disabled', true);
 
-    checkStage = function() {
+    checkStage = function () {
         switch (stageNumber) {
             case 0: //построение фундамента
                 if (!scene.house.basement) {
@@ -566,7 +606,6 @@ function setStage() {
                     }
                 }
                 shapeMenu.removeAttribute('disabled');
-            
                 break;
             case 1: //возведение стен
                 if (!scene.house.outerWalls) {
@@ -579,25 +618,25 @@ function setStage() {
 
     checkStage();
 
-    previousBtn.onclick = function() {
-        if (stageNumber>=0) {
-            stageNumber--;            
+    previousBtn.onclick = function () {
+        if (stageNumber >= 0) {
+            stageNumber--;
             interviewDiv.innerHTML = stageInfo[stageNumber].innerHTML;
             nextBtn.removeAttribute('disabled');
-        } 
+        }
         if (stageNumber === 0) {
             this.setAttribute('disabled', true);
         }
         checkStage();
     }
 
-    nextBtn.onclick = function() {
-        if (stageNumber<stageInfo.length-1) {
+    nextBtn.onclick = function () {
+        if (stageNumber < stageInfo.length - 1) {
             stageNumber++;
             interviewDiv.innerHTML = stageInfo[stageNumber].innerHTML;
             previousBtn.removeAttribute('disabled');
-        } 
-        if (stageNumber === stageInfo.length-1) {
+        }
+        if (stageNumber === stageInfo.length - 1) {
             this.setAttribute('disabled', true);
         }
         shapeMenu.setAttribute('disabled', true);
@@ -611,7 +650,7 @@ function createModel() {
     let outerWalls = scene.house.outerWalls;
 
     let clearBtn = document.querySelector('.editor__functions button');
-    clearBtn.onclick = function() {
+    clearBtn.onclick = function () {
         for (obj in scene.house) {
             clearObj(scene.house[obj]);
         }
@@ -623,19 +662,22 @@ function createModel() {
         const shapeMenu = document.querySelector('#shape');
         let shapeNumber = shapeMenu.selectedOptions[0].value;
         let numberOfShapes = exampleShapes.length;
-        
+
         if (shapeNumber < numberOfShapes) {
             basement.vertices = exampleShapes[shapeNumber]; //берется заготовленный вариант
             clearBtn.setAttribute('disabled', true);
         } else {
-            clearBtn.removeAttribute('disabled'); 
+            clearBtn.removeAttribute('disabled');
             drawEditor(basement);
         }
 
         shapeMenu.onchange = function () {
-            if (shapeMenu.selectedOptions[0].value>=numberOfShapes) {
+            if (shapeMenu.selectedOptions[0].value >= numberOfShapes) {
                 set2D();
             } else {
+                if (outerWalls) {
+                    outerWalls.innerVertices=[];
+                }
                 createModel();
             }
         }
@@ -650,8 +692,9 @@ function createModel() {
                 createModel();
             }
         }
-        
+
         basement.color = [0, 0, 1];
+        
     }
 
     if (outerWalls) {
@@ -665,12 +708,70 @@ function createModel() {
                 createModel();
             }
         }
-    
+
+        widthInput = document.querySelector(".interview div #wallWidth");
+        let widthInfoInput = document.querySelector(".stageDescriptions .stageOuterWalls #wallWidth");
+        let wallWidth;
+        if (widthInput) {
+            wallWidth = Number(convertToCoor(widthInput.value));
+            widthInfoInput.setAttribute('value', widthInput.value);
+            widthInput.onchange = function () {
+                createModel();
+            }
+        }
         outerWalls.vertices = basement.vertices;
         outerWalls.color = [0.8, 0, 0];
-        outerWalls.translation = [0, 0, convertToCoor(basement.height)];
+        outerWalls.translation = [0, 0, basement.height];
+
+        //внутренний контур стен
+        if (wallWidth > 0) {
+            outerWalls.innerVertices=[];
+            let dx = dy = wallWidth;
+
+            //находим среднюю вершину
+            let center = getPolygonCenter(outerWalls.vertices);
+            let Xm = center[0];
+            let Ym = center[1];
+
+            //получаем новые вершины
+            for (let i = 0; i < outerWalls.vertices.length; i += 2) {
+                x = outerWalls.vertices[i];
+                y = outerWalls.vertices[i + 1];
+                if (x < Xm) {
+                    outerWalls.innerVertices.push(x + dx);
+                } else {
+                    outerWalls.innerVertices.push(x - dx);
+                }
+                if (y < Ym) {
+                    outerWalls.innerVertices.push(y + dy);
+                } else {
+                    outerWalls.innerVertices.push(y - dy);
+                }
+            }
+        }
+
     }
 
+    //этажи
+    let floorNumbers = document.querySelector(".interview div #floors");
+    let floorMenu = document.querySelector(".stageDescriptions .stageFloors #floors");
+    if (floorNumbers) {
+        scene.house.floors = Number(floorNumbers.selectedOptions[0].value);
+        // floorMenu.options.forEach((opt) => {
+        //     if (floorNumbers.selectedOptions[0]===opt) {
+        //         opt.setAttribute('selected', true);
+        //     } else {
+        //         opt.removeAttribute('selected');
+        //     }
+        // });
+        floorMenu.selectedOptions = floorNumbers.selectedOptions;
+        console.log(floorMenu.selectedOptions);
+        floorNumbers.onchange = function () {
+            createModel();
+        }
+    } else {
+        scene.house.floors = 1;
+    }
     draw();
 }
 
@@ -680,7 +781,6 @@ function clearObj(obj) {
     obj.color = [0, 0, 0];
     obj.translation = [0, 0, 0];
 }
-
 
 function setMatrixUniforms() {
     mvpMatrix.set(perspectiveMatrix);
@@ -707,6 +807,7 @@ function set2D() {
 function set3D() {
     perspectiveMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100);
     viewMatrix.lookAt(-3, -3, 1.5, 0, 0, 0, 0, 0, 1);
+    // viewMatrix.lookAt(-0, -0, 3.8, 0, 0, 0, 0, 1, 0); //вид сверху
     normalMatrix.setIdentity();
     normalMatrix.setInverseOf(modelMatrix);
     normalMatrix.transpose();
@@ -717,15 +818,15 @@ function set3D() {
 }
 
 function drawEditor(obj) {
-    editorMode=(!editorMode);
-    if (editorMode===false) {
-        canvas.onmousedown = function() {return false;}
-        canvas.onmousemove = function() {return false;}
+    editorMode = (!editorMode);
+    if (editorMode === false) {
+        canvas.onmousedown = function () { return false; }
+        canvas.onmousemove = function () { return false; }
     } else {
-        canvas.onmousedown = function() {
+        canvas.onmousedown = function () {
             drawShapeDown(event, obj);
         }
-        canvas.onmousemove = function() {
+        canvas.onmousemove = function () {
             drawShapeMove(event, obj);
         }
     }
@@ -794,6 +895,7 @@ function flipNormals(normals) {
             normals[i] = -normals[i];
         }
     }
+    console.log(normals);
 }
 
 function vectorAngle(v1, v2) {
@@ -804,6 +906,36 @@ function vectorAngle(v1, v2) {
     if (result === -0) {
         return 0;
     }
+    return result;
+}
+
+function getArea(vertices) {
+    let s = 0;
+    for (let i = 0; i < vertices.length - 2; i += 2) {
+        s += vertices[i] * vertices[i + 3] - vertices[i + 1] * vertices[i + 2]; //x1*y2-x2*y1
+    }
+    return s / 2;
+}
+
+function getPolygonCenter(vertices) {
+    let x = 0, y = 0;
+    let s = getArea(vertices);
+    for (let i = 0; i < vertices.length - 2; i += 2) {
+        x += (vertices[i] + vertices[i + 2]) * (vertices[i] * vertices[i + 3] - vertices[i + 1] * vertices[i + 2]);
+        y += (vertices[i + 1] + vertices[i + 3]) * (vertices[i] * vertices[i + 3] - vertices[i + 1] * vertices[i + 2]);
+    }
+    x /= 6 * s;
+    y /= 6 * s;
+    return [x, y];
+}
+
+function scaleVertex(k, vertices)
+{
+    let center = getPolygonCenter(vertices);
+    let result = [];
+    vertices.forEach((coor, i) => {
+        result.push(center[i % 2] + k * (coor - center[i % 2]));
+    });
     return result;
 }
 
