@@ -19,7 +19,7 @@ const VSHADER =
     '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
     '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
     '  v_Color = a_Color;\n' +
-    '  gl_PointSize = 10.0;\n' +
+    '  gl_PointSize = 5.0;\n' +
     '}\n';
 
 
@@ -29,19 +29,24 @@ const FSHADER =
     'uniform vec3 u_LightPosition;\n' +
     'uniform vec3 u_AmbientLight;\n' +
 
+    'uniform bool u_Clicked;\n' +
+
     'varying vec4 v_Color;\n' +
     'varying vec3 v_Normal;\n' +
     'varying vec3 v_Position;\n' +
 
     'void main() {\n' +
-    '  vec3 normal = normalize(v_Normal);\n' +
-    '  vec3 lightDirection = normalize(u_LightPosition - v_Position);\n' +
-    // '  float nDotL = max(dot(lightDirection, normal), 0.0);\n' + 
-    '  float nDotL = abs(dot(lightDirection, normal));\n' + //правильное освещение задних граней
-    '  vec3 diffuse = u_LightColor * v_Color.rgb * nDotL;\n' +
-    '  vec3 ambient = u_AmbientLight * v_Color.rgb;\n' +
-    '  gl_FragColor = vec4(diffuse + ambient, v_Color.a);\n' +
-
+    '  if (u_Clicked) {\n' +
+    '      gl_FragColor=v_Color;\n' +
+    '  } else {\n' +
+    '      vec3 normal = normalize(v_Normal);\n' +
+    '      vec3 lightDirection = normalize(u_LightPosition - v_Position);\n' +
+    // '      float nDotL = max(dot(lightDirection, normal), 0.0);\n' + 
+    '      float nDotL = abs(dot(lightDirection, normal));\n' + //правильное освещение задних граней
+    '      vec3 diffuse = u_LightColor * v_Color.rgb * nDotL;\n' +
+    '      vec3 ambient = u_AmbientLight * v_Color.rgb;\n' +
+    '      gl_FragColor = vec4(diffuse + ambient, v_Color.a);\n' +
+    '  }\n' +
     '} \n';
 
 /*
@@ -64,6 +69,7 @@ let u_NormalMatrix;
 let u_LightColor;
 let u_LightDirection;
 let u_AmbientLight;
+let u_Clicked;
 
 let viewMode; //режим показа - 2D/3D
 let editorMode; //режим работы редактора - если true, то можно выполнять построения, если false - то только просмотр
@@ -71,14 +77,14 @@ let modelingStage; //стадия моделирования
 
 const viewButtons = document.querySelectorAll(".editor .editor__buttons button"); //кнопки в окне
 
-let drawClick = false; //отслеживание клика при рисовании
+let drawClick = 0; //отслеживание клика при рисовании
 
 //-----матрицы для отображения
-let modelMatrix = new Matrix4(); // Model matrix
+let modelMatrix = new Matrix4();
 let viewMatrix = new Matrix4();
 let perspectiveMatrix = new Matrix4();
-let mvpMatrix = new Matrix4(); // Model view projection matrix
-let normalMatrix = new Matrix4(); // Transformation matrix for normals
+let mvpMatrix = new Matrix4();
+let normalMatrix = new Matrix4();
 
 let colors = [];
 let normals = [];
@@ -92,8 +98,9 @@ let exampleShapes = [
         0.5, -0.5,
         0, -0.5,
         0, 0,
-    -0.5, 0,
-    -0.5, 0.5],
+        -0.5, 0,
+        -0.5, 0.5
+    ],
 
     [-0.5, 0.7,
         0.5, 0.7,
@@ -102,36 +109,39 @@ let exampleShapes = [
         0.7, -0.5,
         0.5, -0.5,
         0.5, -0.7,
-    -0.5, -0.7,
-    -0.5, -0.5,
-    -0.7, -0.5,
-    -0.7, 0.5,
-    -0.5, 0.5,
-    -0.5, 0.7],
+        -0.5, -0.7,
+        -0.5, -0.5,
+        -0.7, -0.5,
+        -0.7, 0.5,
+        -0.5, 0.5,
+        -0.5, 0.7
+    ],
 
     [-0.5, 0.5,
         0.5, 0.5,
         0.5, -0.5,
-    -0.5, -0.5,
-    -0.5, 0.5],
+        -0.5, -0.5,
+        -0.5, 0.5
+    ],
 
-    [-0.1, 0.4,
-        0.1, 0.4,
-        0.05, 0.1,
-        0.1, 0.05,
-        0.4, 0.1,
-        0.4, -0.1,
-        0.1, -0.05,
-        0.05, -0.1,
-        0.1, -0.4,
-    -0.1, -0.4,
-    -0.05, -0.1,
-    -0.1, -0.05,
-    -0.4, -0.1,
-    -0.4, 0.1,
-    -0.1, 0.05,
-    -0.05, 0.1,
-    -0.1, 0.4]
+    [-0.2, 0.8,
+        0.2, 0.8,
+        0.1, 0.2,
+        0.2, 0.1,
+        0.8, 0.2,
+        0.8, -0.2,
+        0.2, -0.1,
+        0.1, -0.2,
+        0.2, -0.8,
+        -0.2, -0.8,
+        -0.1, -0.2,
+        -0.2, -0.1,
+        -0.8, -0.2,
+        -0.8, 0.2,
+        -0.2, 0.1,
+        -0.1, 0.2,
+        -0.2, 0.8
+    ]
 ];
 
 
@@ -164,15 +174,14 @@ let scene = {}; //объект, в котором будем хранить вс
 scene.house = {};
 
 
-
-
-
 /*--------------------------------------------------------------------*/
 window.onload = function () {
     canvas.width = 600;
     canvas.height = 600;
     document.querySelector('.editor__interact').appendChild(canvas);
-    canvas.oncontextmenu = function () { return false; };
+    canvas.oncontextmenu = function () {
+        return false;
+    };
 
     if (!gl) {
         console.log('WebGl does not work in your browser');
@@ -194,8 +203,10 @@ window.onload = function () {
     editorMode = false; //активируем режим простоя для редактора (нельзя рисовать)
     set2D();
     setStage();
+    drawButtons();
 }
 
+/*-------------------------РАБОТА С ШЕЙДЕРАМИ-------------------------------------------*/
 function initShaders() {
     //получить шейдеры
     const VS = getShader('vs', VSHADER);
@@ -240,6 +251,7 @@ function initVariables() {
     u_LightColor = gl.getUniformLocation(shaderProgram, 'u_LightColor');
     u_LightPosition = gl.getUniformLocation(shaderProgram, 'u_LightPosition');
     u_AmbientLight = gl.getUniformLocation(shaderProgram, 'u_AmbientLight');
+    u_Clicked = gl.getUniformLocation(shaderProgram, 'u_Clicked');
 
     if (!u_ModelMatrix || !u_MvpMatrix || !u_NormalMatrix || !u_LightColor || !u_LightPosition || !u_AmbientLight) {
         console.log('Failed to get the storage location');
@@ -249,8 +261,44 @@ function initVariables() {
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
     gl.uniform3f(u_LightPosition, -2.0, -3.0, 3.0);
     gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
+    gl.uniform1i(u_Clicked, 0);
 }
 
+function initArrayBuffer(gl, attribute, data, num) {
+    // Create a buffer object
+    let buffer = gl.createBuffer();
+    if (!buffer) {
+        console.log('Failed to create the buffer object');
+        return false;
+    }
+    // Write date into the buffer object
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    // Assign the buffer object to the attribute variable
+    let a_attribute = gl.getAttribLocation(shaderProgram, attribute);
+    if (a_attribute < 0) {
+        console.log('Failed to get the storage location of ' + attribute);
+        return false;
+    }
+    gl.vertexAttribPointer(a_attribute, num, gl.FLOAT, false, 0, 0);
+    // Enable the assignment of the buffer object to the attribute variable
+    gl.enableVertexAttribArray(a_attribute);
+
+    return true;
+}
+
+function setMatrixUniforms() {
+    mvpMatrix.set(perspectiveMatrix);
+    mvpMatrix.multiply(viewMatrix);
+    mvpMatrix.multiply(modelMatrix);
+    gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
+    gl.uniformMatrix4fv(u_NormalMatrix, false, normalMatrix.elements);
+}
+/*-------------------------КОНЕЦ РАБОТА С ШЕЙДЕРАМИ-------------------------------------------*/
+
+
+/*---------------------------РИСОВАНИЕ ФИГУР-----------------------------------------*/
 function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -306,99 +354,6 @@ function draw() {
     setMatrixUniforms();
 }
 
-function clearViewport() {
-    vertexArray = [];
-    exampleVertices = [];
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-}
-
-function convertToCoor(val) {
-    return val * (canvas.width / 20) / (canvas.width / 2);
-}
-
-function drawShapeDown(event, obj) {
-    if (event.which == 1) {
-        let x = event.clientX;
-        let y = event.clientY;
-
-        let middle_X = gl.canvas.width / 2;
-        let middle_Y = gl.canvas.height / 2;
-
-        let rect = canvas.getBoundingClientRect();
-
-        x = ((x - rect.left) - middle_X) / middle_X;
-        y = (middle_Y - (y - rect.top)) / middle_Y;
-
-        xc = x;
-        yc = y;
-
-        obj.vertices.push(x, y);
-
-        drawClick = true;
-
-    } else if (event.which == 3) {
-        if (drawClick === true) {
-            obj.vertices.pop();
-            obj.vertices.pop();
-        }
-        x = obj.vertices[0];
-        y = obj.vertices[1];
-        obj.vertices.push(x, y);
-        drawClick = false;
-        drawEditor(obj);
-        draw();
-    }
-}
-
-function drawShapeMove(event, obj) {
-    if (drawClick === true) {
-
-        let x = event.clientX;
-        let y = event.clientY;
-
-        let middle_X = gl.canvas.width / 2;
-        let middle_Y = gl.canvas.height / 2;
-
-        let rect = canvas.getBoundingClientRect();
-
-        x = ((x - rect.left) - middle_X) / middle_X;
-        y = (middle_Y - (y - rect.top)) / middle_Y;
-
-        let len = obj.vertices.length;
-
-        if (len % 4 === 0) {
-            obj.vertices.pop();
-            obj.vertices.pop();
-        }
-        obj.vertices.push(x, y);
-        draw();
-    }
-}
-
-function initArrayBuffer(gl, attribute, data, num) {
-    // Create a buffer object
-    let buffer = gl.createBuffer();
-    if (!buffer) {
-        console.log('Failed to create the buffer object');
-        return false;
-    }
-    // Write date into the buffer object
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    // Assign the buffer object to the attribute variable
-    let a_attribute = gl.getAttribLocation(shaderProgram, attribute);
-    if (a_attribute < 0) {
-        console.log('Failed to get the storage location of ' + attribute);
-        return false;
-    }
-    gl.vertexAttribPointer(a_attribute, num, gl.FLOAT, false, 0, 0);
-    // Enable the assignment of the buffer object to the attribute variable
-    gl.enableVertexAttribArray(a_attribute);
-
-    return true;
-}
-
-// новый вариант построения фигуры с применением цвета и нормалей
 function drawObject(vertices, height, texture, fill, flip) {
     if (vertices) {
         colors = [];
@@ -573,6 +528,15 @@ function drawScheme(vertices, height, texture, fill) {
         // gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(center), gl.STATIC_DRAW);
         // gl.drawArrays(gl.POINTS, 0, 1);
+
+
+        if (viewMode==='2d' && editorMode) {
+            let vertexBuffer = gl.createBuffer();
+            if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertices), 2)) return -1;
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+            gl.drawArrays(gl.POINTS, 0, vertices.length/2);
+        }
     } else {
         return;
     }
@@ -588,7 +552,10 @@ function drawWalls(obj) {
         drawScheme(obj.getUpVertices(), obj.height, obj.color, 'strip');
     }
 }
+/*---------------------------КОНЕЦ РИСОВАНИЕ ФИГУР-----------------------------------------*/
 
+
+/*---------------------------ОТСЛЕЖИВАНИЕ СТАДИИ ОПРОСА И СОЗДАНИЕ МОДЕЛИ-----------------------------------------*/
 function setStage() {
     let interviewDiv = document.querySelector('.interview div'); //поле для опроса в котором будет меняться информация
     let stageNumber = 0; //отслеживание номера стадии
@@ -657,13 +624,7 @@ function createModel() {
     let basement = scene.house.basement;
     let outerWalls = scene.house.outerWalls;
 
-    let clearBtn = document.querySelector('.editor__functions button');
-    clearBtn.onclick = function () {
-        for (obj in scene.house) {
-            clearObj(scene.house[obj]);
-        }
-        draw();
-    }
+    let shapeBtn = document.querySelectorAll('.editor__functions button');
 
     if (basement) {
         //получение вершин
@@ -673,10 +634,13 @@ function createModel() {
 
         if (shapeNumber < numberOfShapes) {
             basement.vertices = exampleShapes[shapeNumber]; //берется заготовленный вариант
-            clearBtn.setAttribute('disabled', true);
+            shapeBtn.forEach(btn => {
+                btn.style.display = 'none';
+            });
         } else {
-            clearBtn.removeAttribute('disabled');
-            drawEditor(basement);
+            shapeBtn.forEach(btn => {
+                btn.style.display = 'block';
+            });
         }
 
         shapeMenu.onchange = function () {
@@ -702,7 +666,6 @@ function createModel() {
         }
 
         basement.color = [0, 0, 1];
-
     }
 
     if (outerWalls) {
@@ -734,34 +697,7 @@ function createModel() {
         //внутренний контур стен
         if (wallWidth > 0) {
             outerWalls.innerVertices = [];
-            let dx = dy = wallWidth;
-
-            //находим среднюю вершину
-            let center = getPolygonCenter(outerWalls.vertices);
-            let Xm = center[0];
-            let Ym = center[1];
-
-            if (checkSymmetry(outerWalls.vertices)) {
-                outerWalls.vertices.forEach((coor, i) => {
-                    outerWalls.innerVertices.push(center[i % 2] + 0.8 * (coor - center[i % 2]));
-                });
-            } else {
-                // //получаем новые вершины
-                for (let i = 0; i < outerWalls.vertices.length; i += 2) {
-                    x = outerWalls.vertices[i];
-                    y = outerWalls.vertices[i + 1];
-                    if (x < Xm) {
-                        outerWalls.innerVertices.push(x + dx);
-                    } else {
-                        outerWalls.innerVertices.push(x - dx);
-                    }
-                    if (y < Ym) {
-                        outerWalls.innerVertices.push(y + dy);
-                    } else {
-                        outerWalls.innerVertices.push(y - dy);
-                    }
-                }
-            }
+            outerWalls.innerVertices = getInnerVertices(outerWalls.vertices, wallWidth);
         }
     }
 
@@ -778,7 +714,6 @@ function createModel() {
         //     }
         // });
         floorMenu.selectedOptions = floorNumbers.selectedOptions;
-        console.log(floorMenu.selectedOptions);
         floorNumbers.onchange = function () {
             createModel();
         }
@@ -794,16 +729,11 @@ function clearObj(obj) {
     obj.color = [0, 0, 0];
     obj.translation = [0, 0, 0];
 }
+/*---------------------------КОНЕЦ ОТСЛЕЖИВАНИЕ СТАДИИ ОПРОСА И СОЗДАНИЕ МОДЕЛИ-----------------------------------------*/
 
-function setMatrixUniforms() {
-    mvpMatrix.set(perspectiveMatrix);
-    mvpMatrix.multiply(viewMatrix);
-    mvpMatrix.multiply(modelMatrix);
-    gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
-    gl.uniformMatrix4fv(u_NormalMatrix, false, normalMatrix.elements);
-}
 
+
+/*---------------------------УСТАНОВКА ВИДА-----------------------------------------*/
 function set2D() {
     modelMatrix.setIdentity();
     viewMatrix.setIdentity();
@@ -829,12 +759,95 @@ function set3D() {
     createModel();
     enableViewButtons();
 }
+/*---------------------------КОНЕЦ УСТАНОВКА ВИДА-----------------------------------------*/
+
+
+/*---------------------------СОЗДАНИЕ И РЕДАКТИРОВАНИЕ ФОРМЫ ЗДАНИЯ-----------------------------------------*/
+
+function drawButtons() {
+    let basement = scene.house.basement;
+    let shapeBtn = document.querySelectorAll('.editor__functions button');
+ 
+    let createBtn = shapeBtn[0];
+    let editBtn = shapeBtn[1];
+    let clearBtn = shapeBtn[2];
+
+    if (basement.vertices.length>0) {
+        createBtn.setAttribute('disabled', true);
+        editBtn.removeAttribute('disabled');
+    } else {
+        createBtn.removeAttribute('disabled');
+        editBtn.setAttribute('disabled', true);
+        clearBtn.setAttribute('disabled', true);
+
+    }
+
+    createBtn.onclick = function () {
+        
+        if (createBtn.innerHTML === 'Построить') {
+            createBtn.innerHTML = 'Закончить';
+            shapeBtn.forEach(btn => {
+                if (btn !== createBtn) {
+                    btn.setAttribute('disabled', true);
+                }
+            });
+            drawEditor(basement);
+        } else {
+            createBtn.innerHTML = 'Построить';
+            shapeBtn.forEach(btn => {
+                if (btn !== createBtn) {
+                    btn.removeAttribute('disabled');
+                }
+            });
+            editorMode=false;
+            draw();
+        }
+        drawButtons();
+    }
+
+    editBtn.onclick = function () {
+        if (editBtn.innerHTML === 'Редактировать') {
+            editBtn.innerHTML = 'Закончить';
+            shapeBtn.forEach(btn => {
+                if (btn !== editBtn) {
+                    btn.setAttribute('disabled', true);
+                }
+            });
+            editorMode=true;
+            draw();
+            changeShape();
+        } else {
+            editBtn.innerHTML = 'Редактировать';
+            shapeBtn.forEach(btn => {
+                if (btn !== editBtn) {
+                    btn.removeAttribute('disabled');
+                }
+            });
+            editorMode=false;
+            draw();
+            changeShape(basement);
+        }
+        drawButtons();
+    }
+
+    clearBtn.onclick = function () {
+        for (obj in scene.house) {
+            clearObj(scene.house[obj]);
+        }
+        draw();
+        drawButtons();
+    }
+}
 
 function drawEditor(obj) {
     editorMode = (!editorMode);
     if (editorMode === false) {
-        canvas.onmousedown = function () { return false; }
-        canvas.onmousemove = function () { return false; }
+        canvas.onmousedown = function () {
+            return false;
+        }
+        canvas.onmousemove = function () {
+            return false;
+        }
     } else {
         canvas.onmousedown = function () {
             drawShapeDown(event, obj);
@@ -843,6 +856,81 @@ function drawEditor(obj) {
             drawShapeMove(event, obj);
         }
     }
+}
+
+function drawShapeDown(event, obj) {
+    if (event.which == 1) {
+        let x = event.clientX;
+        let y = event.clientY;
+
+        let middle_X = gl.canvas.width / 2;
+        let middle_Y = gl.canvas.height / 2;
+
+        let rect = canvas.getBoundingClientRect();
+
+        x = ((x - rect.left) - middle_X) / middle_X;
+        y = (middle_Y - (y - rect.top)) / middle_Y;
+
+        xc = x;
+        yc = y;
+
+        obj.vertices.push(x, y);
+
+        drawClick++;
+
+    } else if (event.which == 3) {
+        if (drawClick > 0) {
+            obj.vertices.pop();
+            obj.vertices.pop();
+        }
+        x = obj.vertices[0];
+        y = obj.vertices[1];
+        obj.vertices.push(x, y);
+        drawClick = 0;
+        drawEditor(obj);
+        editorMode=true;
+        draw();
+    }
+}
+
+function drawShapeMove(event, obj) {
+    if (drawClick > 0) {
+
+        let x = event.clientX;
+        let y = event.clientY;
+
+        let middle_X = gl.canvas.width / 2;
+        let middle_Y = gl.canvas.height / 2;
+
+        let rect = canvas.getBoundingClientRect();
+
+        x = ((x - rect.left) - middle_X) / middle_X;
+        y = (middle_Y - (y - rect.top)) / middle_Y;
+
+        let len = obj.vertices.length;
+
+        if (len / 2 % (drawClick + 1) === 0) {
+            obj.vertices.pop();
+            obj.vertices.pop();
+        }
+        obj.vertices.push(x, y);
+        draw();
+    }
+}
+
+function changeShape(obj) {
+    //отслеживаем клик
+    //левый клик выделить
+    //правый клик снять выделение
+    //перерисовываем вершины
+    //меняем цвет у выделенной
+    //заставляем выделенную вершину перемещаться
+}
+/*---------------------------КОНЕЦ СОЗДАНИЕ И РЕДАКТИРОВАНИЕ ФОРМЫ-----------------------------------------*/
+
+/*---------------------------ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-----------------------------------------*/
+function convertToCoor(val) {
+    return val * (canvas.width / 20) / (canvas.width / 2);
 }
 
 function toDeg(rad) {
@@ -931,7 +1019,8 @@ function getArea(vertices) {
 }
 
 function getPolygonCenter(vertices) {
-    let x = 0, y = 0;
+    let x = 0,
+        y = 0;
     let s = getArea(vertices);
     for (let i = 0; i < vertices.length - 2; i += 2) {
         x += (vertices[i] + vertices[i + 2]) * (vertices[i] * vertices[i + 3] - vertices[i + 1] * vertices[i + 2]);
@@ -943,7 +1032,8 @@ function getPolygonCenter(vertices) {
 }
 
 function checkSymmetry(vertices) {
-    let sumLeft = 0, sumRight = 0;
+    let sumLeft = 0,
+        sumRight = 0;
     for (let i = 0; i < vertices.length; i += 2) {
         if (vertices[i] > 0) {
             sumLeft += vertices[i];
@@ -951,13 +1041,63 @@ function checkSymmetry(vertices) {
             sumRight += vertices[i];
         }
     }
-    if (Math.abs(sumRight)<=Math.abs(sumLeft)*1.1 && Math.abs(sumRight)>=Math.abs(sumLeft)*0.9) {
+    if (Math.abs(sumRight) <= Math.abs(sumLeft) * 1.1 && Math.abs(sumRight) >= Math.abs(sumLeft) * 0.9) {
         return true;
     } else {
         return false;
     }
 }
 
+function getInnerVertices(vertices, width) {
+    let result = [];
+    let innerVertices = [];
+    for (let i = 2; i < vertices.length - 2; i += 2) {
+        result = getIntro(vertices[i - 2], vertices[i - 1], vertices[i], vertices[i + 1], vertices[i + 2], vertices[i + 3], width);
+        innerVertices.push(result[0], result[1]);
+    }
+    let len = vertices.length;
+    result = getIntro(vertices[len - 4], vertices[len - 3], vertices[0], vertices[1], vertices[2], vertices[3], width);
+    innerVertices.unshift(result[0], result[1]);
+    innerVertices.push(result[0], result[1]);
+    return innerVertices;
+}
+
+function getIntro(x1, y1, x2, y2, x3, y3, width) {
+    let a = [],
+        b = [],
+        c = [],
+        d = [];
+    a.push(x1 - x2, y1 - y2);
+    let absA = absVector(a);
+    a[0] = a[0] / absA;
+    a[1] = a[1] / absA;
+    b.push(x3 - x2, y3 - y2);
+    let absB = absVector(b);
+    b[0] = b[0] / absB;
+    b[1] = b[1] / absB;
+    c.push(a[0] + b[0], a[1] + b[1]);
+    if ((-a[0] * b[1] - b[0] * (-a[1])) > 0) {
+        c[0] = -c[0];
+        c[1] = -c[1];
+    }
+
+    let cos = vectorAngle(a, b);
+    let sin = Math.sqrt((1 - cos) / 2);
+    width = width / sin;
+    k = width * Math.sqrt(2 / (Math.pow(c[0], 2) + Math.pow(c[1], 2)));
+    d.push(k * c[0], k * c[1]);
+    d[0] = d[0] + x2;
+    d[1] = d[1] + y2;
+    return d;
+}
+
+function absVector(a) {
+    return Math.sqrt(a[0] * a[0] + a[1] * a[1]);
+}
+/*---------------------------КОНЕЦ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-----------------------------------------*/
+
+
+/*---------------------------РАБОТА С ВИДОМ НА МОДЕЛЬ-----------------------------------------*/
 function zoomIn() {
     viewMatrix.scale(1.5, 1.5, 1.5);
     setMatrixUniforms();
@@ -1031,5 +1171,7 @@ function makeSmall() {
     canvas.width = 500;
     canvas.height = 500;
 }
+/*---------------------------КОНЕЦ РАБОТА С ВИДОМ НА МОДЕЛЬ-----------------------------------------*/
+
 
 
