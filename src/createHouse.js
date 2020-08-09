@@ -1324,6 +1324,7 @@ function initEventHandlers(canvas, currentAngle) {
                 modelMatrix.rotate(currentAngle[0], 0, 0, 1);
                 // viewMatrix.lookAt(-3, -3, Math.max(Math.min(currentAngle[1]+1.5, 4), 0.5), 0, 0, 0, 0, 0, 1);
                 // viewMatrix.rotate(currentAngle[1], 1, 0, 0);
+                //
                 setMatrixUniforms();
                 draw();
             }
