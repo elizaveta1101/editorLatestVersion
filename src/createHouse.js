@@ -5,21 +5,38 @@ const VSHADER =
     'attribute vec4 a_Position; \n' +
     'attribute vec4 a_Color;\n' +
     'attribute vec4 a_Normal;\n' +
+    'attribute float a_Vertex;\n' +
 
     'uniform mat4 u_MvpMatrix;\n' +
     'uniform mat4 u_ModelMatrix;\n' +
     'uniform mat4 u_NormalMatrix;\n' +
+    'uniform int u_PickedVertex;\n' +
+    'uniform bool u_PointsMode;\n' +
 
     'varying vec4 v_Color;\n' +
     'varying vec3 v_Normal;\n' +
     'varying vec3 v_Position;\n' +
+    'varying float v_Pick;\n' +
 
     'void main() { \n' +
     '  gl_Position = u_MvpMatrix * a_Position;\n' +
     '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
     '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
-    '  v_Color = a_Color;\n' +
-    '  gl_PointSize = 5.0;\n' +
+
+    '  int vertex = int(a_Vertex);\n' +
+    '  vec3 color = (vertex == u_PickedVertex && u_PointsMode) ? vec3(1.0, 0.0, 0.0) : a_Color.rgb;\n' +
+    '  if(u_PickedVertex == 0) {\n' +
+    '    v_Color = vec4(color, a_Vertex/255.0);\n' +
+    '  } else {\n' +
+    '    v_Color = vec4(color, 1.0);\n' +
+    '  }\n' +
+    '  if (u_PointsMode) {\n' +
+    '    v_Pick=1.0;\n' +
+    '  } else {\n' +
+    '    v_Pick=0.0;\n' +
+    '  }\n' +
+    // '  v_Color = a_Color;\n' +
+    '  gl_PointSize = 7.0;\n' +
     '}\n';
 
 
@@ -29,14 +46,13 @@ const FSHADER =
     'uniform vec3 u_LightPosition;\n' +
     'uniform vec3 u_AmbientLight;\n' +
 
-    'uniform bool u_Clicked;\n' +
-
     'varying vec4 v_Color;\n' +
     'varying vec3 v_Normal;\n' +
     'varying vec3 v_Position;\n' +
+    'varying float v_Pick;\n' +
 
     'void main() {\n' +
-    '  if (u_Clicked) {\n' +
+    '  if (v_Pick==1.0) {\n' +
     '      gl_FragColor=v_Color;\n' +
     '  } else {\n' +
     '      vec3 normal = normalize(v_Normal);\n' +
@@ -69,15 +85,17 @@ let u_NormalMatrix;
 let u_LightColor;
 let u_LightDirection;
 let u_AmbientLight;
-let u_Clicked;
+let u_PickedVertex;
+let u_PointsMode;
 
 let viewMode; //режим показа - 2D/3D
 let editorMode; //режим работы редактора - если true, то можно выполнять построения, если false - то только просмотр
 let modelingStage; //стадия моделирования
+let currentAngle = 0;
 
 const viewButtons = document.querySelectorAll(".editor .editor__buttons button"); //кнопки в окне
 
-let drawClick = 0; //отслеживание клика при рисовании
+
 
 //-----матрицы для отображения
 let modelMatrix = new Matrix4();
@@ -251,7 +269,9 @@ function initVariables() {
     u_LightColor = gl.getUniformLocation(shaderProgram, 'u_LightColor');
     u_LightPosition = gl.getUniformLocation(shaderProgram, 'u_LightPosition');
     u_AmbientLight = gl.getUniformLocation(shaderProgram, 'u_AmbientLight');
-    u_Clicked = gl.getUniformLocation(shaderProgram, 'u_Clicked');
+    u_PickedVertex = gl.getUniformLocation(shaderProgram, 'u_PickedVertex');
+    u_PointsMode = gl.getUniformLocation(shaderProgram, 'u_PointsMode');
+
 
     if (!u_ModelMatrix || !u_MvpMatrix || !u_NormalMatrix || !u_LightColor || !u_LightPosition || !u_AmbientLight) {
         console.log('Failed to get the storage location');
@@ -261,7 +281,8 @@ function initVariables() {
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
     gl.uniform3f(u_LightPosition, -2.0, -3.0, 3.0);
     gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
-    gl.uniform1i(u_Clicked, 0);
+    gl.uniform1i(u_PickedVertex, -1); //-1 - нет щелчка, 0 - щелчок, 1,2,3,... - номер вершины/объекта
+    gl.uniform1i(u_PointsMode, 0); //0 - не точки, 1 - точки
 }
 
 function initArrayBuffer(gl, attribute, data, num) {
@@ -302,7 +323,7 @@ function setMatrixUniforms() {
 function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
-
+    gl.uniform1i(u_PointsMode, 0);
     //оси координат
     vertexArray = [
         0, 0, 0, 1, 0, 0, //x (red)
@@ -334,6 +355,9 @@ function draw() {
                 if (scene.house[obj].height > 0) {
                     drawScheme(scene.house[obj].innerVertices, 0, [0, 0, 0], false);
                 }
+                if (editorMode) {
+                    drawPoints(scene.house[obj].vertices, [0, 0, 0]);
+                }
             } else if (obj === 'outerWalls') {
                 for (let i = 0; i < scene.house.floors - 1; i++) {
                     drawWalls(scene.house[obj]);
@@ -355,6 +379,7 @@ function draw() {
 }
 
 function drawObject(vertices, height, texture, fill, flip) {
+    gl.uniform1i(u_PointsMode, 0);
     if (vertices) {
         colors = [];
         normals = [];
@@ -412,11 +437,6 @@ function drawObject(vertices, height, texture, fill, flip) {
 
         //индексы
         if (flip) {
-            // for (let i = vertexArray.length / 3-1; i > 4; i -= 4) {
-            //     indices.push(i, i-1, i-2, i-1, i-2, i-3);
-            //     //... 7,6,5, 6,5,4,
-            //     //3,2,1, 2,1,0
-            // }
             for (let i = 0; i < vertexArray.length / 3 - 3; i += 4) {
                 indices.push(i + 2, i + 1, i, i + 3, i + 2, i + 1);
                 //0, 1, 2, 1, 2, 3,
@@ -429,7 +449,6 @@ function drawObject(vertices, height, texture, fill, flip) {
                 //4,5,6, 5,6,7, ...
             }
         }
-
 
         let indexBuffer = gl.createBuffer();
         if (!indexBuffer) {
@@ -452,6 +471,7 @@ function drawObject(vertices, height, texture, fill, flip) {
 }
 
 function drawScheme(vertices, height, texture, fill) {
+    gl.uniform1i(u_PointsMode, 0);
     if (vertices) {
         colors = [];
         normals = [];
@@ -519,27 +539,32 @@ function drawScheme(vertices, height, texture, fill) {
         } else {
             gl.drawElements(gl.LINE_STRIP, n, gl.UNSIGNED_BYTE, 0);
         }
-
-        //барицентр
-        // let center = getPolygonCenter(vertices);
-        // center.push(0.0);
-        // if (!initArrayBuffer(gl, 'a_Position', new Float32Array(center), 3)) return -1;
-        // let vertexBuffer = gl.createBuffer();
-        // gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(center), gl.STATIC_DRAW);
-        // gl.drawArrays(gl.POINTS, 0, 1);
-
-
-        if (viewMode==='2d' && editorMode) {
-            let vertexBuffer = gl.createBuffer();
-            if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertices), 2)) return -1;
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-            gl.drawArrays(gl.POINTS, 0, vertices.length/2);
-        }
     } else {
         return;
     }
+}
+
+function drawPoints(vertices) {
+    gl.uniform1i(u_PointsMode, 1);
+    let vertexNumber = [];
+    for (let i = 1; i <= vertices.length / 2; i++) {
+        vertexNumber.push(i);
+    }
+    let vertexArray = [];
+    for (let i = 0; i < vertices.length; i += 2) {
+        vertexArray.push(vertices[i], vertices[i + 1], 0.5); //A, B, ...
+    }
+    colors = [];
+    for (let i = 0; i < vertices.length / 2; i++) {
+        colors.push(0.0, 0.0, 0.0);
+    }
+    let vertexBuffer = gl.createBuffer();
+    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Vertex', new Float32Array(vertexNumber), 1)) return -1;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexArray), gl.STATIC_DRAW);
+    gl.drawArrays(gl.POINTS, 0, vertices.length / 2);
 }
 
 function drawWalls(obj) {
@@ -564,10 +589,25 @@ function setStage() {
     const previousBtn = document.querySelector('.interview .previousStage');
     const nextBtn = document.querySelector('.interview .nextStage');
     const shapeMenu = document.querySelector('#shape');
+    const numberOfShapes = exampleShapes.length;
 
+    let shapeBtn = document.querySelectorAll('.editor__functions button');
     interviewDiv.innerHTML = stageInfo[0].innerHTML;
     previousBtn.setAttribute('disabled', true);
+
     shapeMenu.setAttribute('disabled', true);
+    shapeMenu.onchange = function () {
+        let shapeNumber = shapeMenu.selectedOptions[0].value;
+        if (shapeNumber < numberOfShapes) {
+            shapeBtn.forEach(btn => {
+                btn.style.display = 'none';
+            });
+        } else {
+            shapeBtn.forEach(btn => {
+                btn.style.display = 'block';
+            });
+        }
+    }
 
     checkStage = function () {
         switch (stageNumber) {
@@ -581,11 +621,17 @@ function setStage() {
                     }
                 }
                 shapeMenu.removeAttribute('disabled');
+                if (!(shapeMenu.selectedOptions[0].value < numberOfShapes)) {
+                    shapeBtn.forEach(btn => {
+                        btn.style.display = 'block';
+                    });
+                }
                 break;
             case 1: //возведение стен
                 if (!scene.house.outerWalls) {
                     scene.house.outerWalls = new sceneObject('outerWalls');
                 }
+
                 break;
         }
         createModel();
@@ -615,6 +661,9 @@ function setStage() {
             this.setAttribute('disabled', true);
         }
         shapeMenu.setAttribute('disabled', true);
+        shapeBtn.forEach(btn => {
+            btn.style.display = 'none';
+        });
         checkStage();
     }
 }
@@ -624,26 +673,17 @@ function createModel() {
     let basement = scene.house.basement;
     let outerWalls = scene.house.outerWalls;
 
-    let shapeBtn = document.querySelectorAll('.editor__functions button');
-
     if (basement) {
         //получение вершин
         const shapeMenu = document.querySelector('#shape');
+        const numberOfShapes = exampleShapes.length;
         let shapeNumber = shapeMenu.selectedOptions[0].value;
-        let numberOfShapes = exampleShapes.length;
 
         if (shapeNumber < numberOfShapes) {
-            basement.vertices = exampleShapes[shapeNumber]; //берется заготовленный вариант
-            shapeBtn.forEach(btn => {
-                btn.style.display = 'none';
-            });
-        } else {
-            shapeBtn.forEach(btn => {
-                btn.style.display = 'block';
-            });
+            basement.vertices = [...exampleShapes[shapeNumber]]; //берется заготовленный вариант  
         }
 
-        shapeMenu.onchange = function () {
+        shapeMenu.addEventListener('change', function () {
             if (shapeMenu.selectedOptions[0].value >= numberOfShapes) {
                 set2D();
             } else {
@@ -652,7 +692,7 @@ function createModel() {
                 }
                 createModel();
             }
-        }
+        });
         //получение высоты
         heightInput = document.querySelector(".interview div #basement");
         let heightInfoInput = document.querySelector(".stageDescriptions .stageBasement #basement");
@@ -758,6 +798,8 @@ function set3D() {
     viewMode = '3d';
     createModel();
     enableViewButtons();
+    currentAngle = [0, 0];
+    initEventHandlers(canvas, currentAngle);
 }
 /*---------------------------КОНЕЦ УСТАНОВКА ВИДА-----------------------------------------*/
 
@@ -767,31 +809,29 @@ function set3D() {
 function drawButtons() {
     let basement = scene.house.basement;
     let shapeBtn = document.querySelectorAll('.editor__functions button');
- 
+
     let createBtn = shapeBtn[0];
     let editBtn = shapeBtn[1];
     let clearBtn = shapeBtn[2];
 
-    if (basement.vertices.length>0) {
+    if (basement.vertices.length > 0) {
         createBtn.setAttribute('disabled', true);
         editBtn.removeAttribute('disabled');
     } else {
         createBtn.removeAttribute('disabled');
         editBtn.setAttribute('disabled', true);
         clearBtn.setAttribute('disabled', true);
-
     }
 
     createBtn.onclick = function () {
-        
         if (createBtn.innerHTML === 'Построить') {
-            createBtn.innerHTML = 'Закончить';
             shapeBtn.forEach(btn => {
                 if (btn !== createBtn) {
                     btn.setAttribute('disabled', true);
                 }
             });
-            drawEditor(basement);
+            drawEditor(basement, createBtn);
+            createBtn.innerHTML = 'Закончить';
         } else {
             createBtn.innerHTML = 'Построить';
             shapeBtn.forEach(btn => {
@@ -799,7 +839,8 @@ function drawButtons() {
                     btn.removeAttribute('disabled');
                 }
             });
-            editorMode=false;
+            drawEditor(basement, createBtn);
+            gl.uniform1i(u_PickedVertex, -1);
             draw();
         }
         drawButtons();
@@ -807,15 +848,14 @@ function drawButtons() {
 
     editBtn.onclick = function () {
         if (editBtn.innerHTML === 'Редактировать') {
-            editBtn.innerHTML = 'Закончить';
             shapeBtn.forEach(btn => {
                 if (btn !== editBtn) {
                     btn.setAttribute('disabled', true);
                 }
             });
-            editorMode=true;
+            drawEditor(basement, editBtn);
             draw();
-            changeShape();
+            editBtn.innerHTML = 'Закончить';
         } else {
             editBtn.innerHTML = 'Редактировать';
             shapeBtn.forEach(btn => {
@@ -823,9 +863,8 @@ function drawButtons() {
                     btn.removeAttribute('disabled');
                 }
             });
-            editorMode=false;
+            drawEditor(basement, editBtn);
             draw();
-            changeShape(basement);
         }
         drawButtons();
     }
@@ -839,24 +878,38 @@ function drawButtons() {
     }
 }
 
-function drawEditor(obj) {
+function drawEditor(obj, btn) {
     editorMode = (!editorMode);
-    if (editorMode === false) {
-        canvas.onmousedown = function () {
-            return false;
-        }
-        canvas.onmousemove = function () {
-            return false;
+    if (editorMode) {
+        if (btn.innerHTML === 'Построить') {
+            canvas.onmousedown = function (event) {
+                drawShapeDown(event, obj);
+            }
+            canvas.onmousemove = function (event) {
+                drawShapeMove(event, obj);
+            }
+        } else
+        if (btn.innerHTML === 'Редактировать') {
+            canvas.onmousedown = function (event) {
+                changeShapeDown(event, obj);
+            }
         }
     } else {
         canvas.onmousedown = function () {
-            drawShapeDown(event, obj);
+            return false;
         }
         canvas.onmousemove = function () {
-            drawShapeMove(event, obj);
+            return false;
         }
+        canvas.onmouseup = function () {
+            return false;
+        }
+        gl.uniform1i(u_PickedVertex, -1);
+        draw();
     }
 }
+
+let drawClick = 0; //отслеживание клика при рисовании
 
 function drawShapeDown(event, obj) {
     if (event.which == 1) {
@@ -875,7 +928,7 @@ function drawShapeDown(event, obj) {
         yc = y;
 
         obj.vertices.push(x, y);
-
+        draw();
         drawClick++;
 
     } else if (event.which == 3) {
@@ -887,8 +940,8 @@ function drawShapeDown(event, obj) {
         y = obj.vertices[1];
         obj.vertices.push(x, y);
         drawClick = 0;
-        drawEditor(obj);
-        editorMode=true;
+        drawEditor(obj, null);
+        editorMode = true;
         draw();
     }
 }
@@ -918,14 +971,66 @@ function drawShapeMove(event, obj) {
     }
 }
 
-function changeShape(obj) {
-    //отслеживаем клик
-    //левый клик выделить
-    //правый клик снять выделение
-    //перерисовываем вершины
-    //меняем цвет у выделенной
-    //заставляем выделенную вершину перемещаться
+function changeShapeDown(event, obj) {
+    if (event.which == 1) {
+        let x = event.clientX,
+            y = event.clientY;
+        let rect = canvas.getBoundingClientRect();
+        if (rect.left <= x && x < rect.right && rect.top <= y && y < rect.bottom) {
+            x = x - rect.left;
+            y = rect.bottom - y;
+            let vertex = checkVertex(x, y, u_PickedVertex);
+            gl.uniform1i(u_PickedVertex, vertex);
+            draw();
+            drawClick++;
+            canvas.onmousemove = function (event) {
+                changeShapeMove(event, obj, vertex);
+            }
+            canvas.onmouseup = function () {
+                drawClick = 0;
+            }
+        }
+    } else if (event.which == 3) {
+        gl.uniform1i(u_PickedVertex, -1);
+        draw();
+        drawClick = 0;
+    }
 }
+
+function changeShapeMove(event, obj, num) {
+    if (drawClick > 0) {
+        // let num = checkVertex(x, y, u_PickedVertex); 
+        if (num < obj.vertices.length / 2) {
+            let x = event.clientX;
+            let y = event.clientY;
+
+            let middle_X = gl.canvas.width / 2;
+            let middle_Y = gl.canvas.height / 2;
+
+            let rect = canvas.getBoundingClientRect();
+
+            x = ((x - rect.left) - middle_X) / middle_X;
+            y = (middle_Y - (y - rect.top)) / middle_Y;
+
+            obj.vertices[(num - 1) * 2] = x;
+            obj.vertices[(num - 1) * 2 + 1] = y;
+            if (num === 1) {
+                obj.vertices[obj.vertices.length - 2] = x;
+                obj.vertices[obj.vertices.length - 1] = y;
+            }
+            draw();
+        }
+    }
+}
+
+function checkVertex(x, y, u_PickedVertex) {
+    let pixels = new Uint8Array(4);
+    gl.uniform1i(u_PickedVertex, 0);
+    draw();
+    gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    return pixels[3];
+}
+
 /*---------------------------КОНЕЦ СОЗДАНИЕ И РЕДАКТИРОВАНИЕ ФОРМЫ-----------------------------------------*/
 
 /*---------------------------ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-----------------------------------------*/
@@ -1171,7 +1276,69 @@ function makeSmall() {
     canvas.width = 500;
     canvas.height = 500;
 }
+
+function rotateDown(ev, dragging) {
+    var x = ev.clientX,
+        y = ev.clientY;
+    // Start dragging if a moue is in <canvas>
+    var rect = ev.target.getBoundingClientRect();
+    if (rect.left <= x && x < rect.right && rect.top <= y && y < rect.bottom) {
+        lastX = x;
+        lastY = y;
+        dragging = true;
+    }
+}
+
+function initEventHandlers(canvas, currentAngle) {
+    if (!editorMode) {
+        let dragging = false;
+        let lastX, lastY;
+        canvas.onmousedown = function (ev) {
+            let x = ev.clientX;
+            let y = ev.clientY;
+            let rect = ev.target.getBoundingClientRect();
+
+            if (rect.left <= x && x < rect.right && rect.top <= y && y < rect.bottom) {
+                lastX = x;
+                lastY = y;
+                dragging = true;
+            }
+            canvas.onmousemove = function (ev) {
+                let x = ev.clientX;
+                let y = ev.clientY;
+
+                if (dragging) {
+                    let factorX = 1 / 120; // The rotation ratio
+                    let factorY = 0.005; // The rotation ratio
+                    let dx = factorX * (x - lastX);
+                    let dy = factorY * (y - lastY);
+                    // dy должен меняться от
+                    // currentAngle должен меняться от -1 до 2.5 
+                    currentAngle[0] += dx;
+                    currentAngle[1] = Math.max(Math.min(currentAngle[1] + dy, 2.5), -1);
+                    console.log(currentAngle[1]);
+                }
+                lastX = x;
+                lastY = y;
+
+                modelMatrix.rotate(currentAngle[0], 0, 0, 1);
+                // viewMatrix.lookAt(-3, -3, Math.max(Math.min(currentAngle[1]+1.5, 4), 0.5), 0, 0, 0, 0, 0, 1);
+                // viewMatrix.rotate(currentAngle[1], 1, 0, 0);
+                setMatrixUniforms();
+                draw();
+            }
+        }
+        canvas.onmouseup = function (ev) {
+            canvas.onmousemove = function () {
+                return false;
+            }
+            currentAngle = [0, 0];
+        }
+        let tick = function () { // Start drawing
+            draw();
+            requestAnimationFrame(tick, canvas);
+        };
+        tick();
+    }
+}
 /*---------------------------КОНЕЦ РАБОТА С ВИДОМ НА МОДЕЛЬ-----------------------------------------*/
-
-
-
