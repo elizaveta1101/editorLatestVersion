@@ -1343,3 +1343,12 @@ function initEventHandlers(canvas, currentAngle) {
     }
 }
 /*---------------------------КОНЕЦ РАБОТА С ВИДОМ НА МОДЕЛЬ-----------------------------------------*/
+
+var numAttribs = gl.getProgramParameter(shaderProgram, gl.ACTIVE_ATTRIBUTES);
+for (var ii = 0; ii < numAttribs; ++ii) {
+var attribInfo = gl.getActiveAttrib(shaderProgram, ii);
+if (!attribInfo) {
+break;
+}
+console.log(gl.getAttribLocation(shaderProgram, attribInfo.name), attribInfo.name);
+}
