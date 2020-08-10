@@ -279,7 +279,7 @@ function initVariables() {
     }
 
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
-    gl.uniform3f(u_LightPosition, -2.0, -3.0, 3.0);
+    gl.uniform3f(u_LightPosition, -2.0, -3.0, 2.0);
     gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
     gl.uniform1i(u_PickedVertex, -1); //-1 - нет щелчка, 0 - щелчок, 1,2,3,... - номер вершины/объекта
     gl.uniform1i(u_PointsMode, 0); //0 - не точки, 1 - точки
