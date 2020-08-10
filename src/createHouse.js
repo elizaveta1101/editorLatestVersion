@@ -337,11 +337,8 @@ function draw() {
     for (let i = 0; i < vertexArray / 3; i++) {
         colors.push(0, 0, 0);
     }
-    let vertexBuffer = gl.createBuffer();
-    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexArray), gl.STATIC_DRAW);
+    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) console.log('error'); //return -1;
+    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) console.log('error'); // return -1;
     gl.drawArrays(gl.LINES, 0, count);
     modelMatrix.pushMatrix();
 
@@ -560,12 +557,10 @@ function drawPoints(vertices) {
     for (let i = 0; i < vertices.length / 2; i++) {
         colors.push(0.0, 0.0, 0.0);
     }
-    let vertexBuffer = gl.createBuffer();
+
     if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
     if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
     if (!initArrayBuffer(gl, 'a_Vertex', new Float32Array(vertexNumber), 1)) return -1;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexArray), gl.STATIC_DRAW);
     gl.drawArrays(gl.POINTS, 0, vertices.length / 2);
 }
 
