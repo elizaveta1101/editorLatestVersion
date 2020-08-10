@@ -333,7 +333,7 @@ function draw() {
 
     let count = vertexArray.length / 3;
     colors = [];
-    for (let i = 0; i < vertexArray.length / 3; i++) {
+    for (let i = 0; i < count; i++) {
         colors.push(0.0, 0.0, 0.0);
     }
     console.log(colors);
