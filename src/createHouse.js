@@ -76,8 +76,8 @@ const gl = canvas.getContext("webgl", {
 
 let shaderProgram; //программа
 
-let a_Position;
-let a_Color;
+// let a_Position;
+// let a_Color;
 let a_normal;
 let u_MvpMatrix;
 let u_ModelMatrix;
@@ -304,7 +304,6 @@ function initArrayBuffer(gl, attribute, data, num) {
     gl.vertexAttribPointer(a_attribute, num, gl.FLOAT, false, 0, 0);
     // Enable the assignment of the buffer object to the attribute variable
     gl.enableVertexAttribArray(a_attribute);
-
     return true;
 }
 
@@ -330,16 +329,18 @@ function draw() {
         0.0, 0.0, 0.0, 0.0, 1.0, 0.0, //y (grey)
         0.0, 0.0, 0.0, 0.0, 0.0, 1.0, //z (green)
     ];
-
+    console.log(vertexArray);
 
     let count = vertexArray.length / 3;
     colors = [];
-    for (let i = 0; i < vertexArray / 3; i++) {
+    for (let i = 0; i < vertexArray.length / 3; i++) {
         colors.push(0.0, 0.0, 0.0);
     }
+    console.log(colors);
     if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
+    console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
     if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-    gl.drawArrays(gl.POINTS, 0, count);
+    gl.drawArrays(gl.LINES, 0, count);
     
     modelMatrix.pushMatrix();
 
