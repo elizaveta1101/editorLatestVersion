@@ -339,7 +339,8 @@ function draw() {
     }
     if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
     if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-    gl.drawArrays(gl.LINES, 0, count);
+    gl.drawArrays(gl.POINTS, 0, count);
+    
     modelMatrix.pushMatrix();
 
     for (obj in scene.house) {
