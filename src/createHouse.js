@@ -326,16 +326,16 @@ function draw() {
     gl.uniform1i(u_PointsMode, 0);
     //оси координат
     vertexArray = [
-        0, 0, 0, 1, 0, 0, //x (red)
-        0, 0, 0, 0, 1, 0, //y (grey)
-        0, 0, 0, 0, 0, 1, //z (green)
+        0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //x (red)
+        0.0, 0.0, 0.0, 0.0, 1.0, 0.0, //y (grey)
+        0.0, 0.0, 0.0, 0.0, 0.0, 1.0, //z (green)
     ];
 
 
     let count = vertexArray.length / 3;
     colors = [];
     for (let i = 0; i < vertexArray / 3; i++) {
-        colors.push(0, 0, 0);
+        colors.push(0.0, 0.0, 0.0);
     }
     if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) console.log('error'); //return -1;
     if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) console.log('error'); // return -1;
