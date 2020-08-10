@@ -1099,7 +1099,6 @@ function flipNormals(normals) {
             normals[i] = -normals[i];
         }
     }
-    console.log(normals);
 }
 
 function vectorAngle(v1, v2) {
@@ -1314,7 +1313,6 @@ function initEventHandlers(canvas, currentAngle) {
                     // currentAngle должен меняться от -1 до 2.5 
                     currentAngle[0] += dx;
                     currentAngle[1] = Math.max(Math.min(currentAngle[1] + dy, 2.5), -1);
-                    console.log(currentAngle[1]);
                 }
                 lastX = x;
                 lastY = y;
