@@ -1,0 +1,47 @@
+.content {
+  display: grid;
+  grid-template-columns: [editor] 60% [interview] 40%;
+  grid-template-rows: [content] 650px;
+  grid-auto-flow: row;
+  width: 100%;
+}
+.editor {
+  grid-column: editor;
+  grid-row: content;
+  display: grid;
+  grid-template-columns: [functions] 1fr [interact] 4fr;
+  grid-template-rows: [editorPlace] 610px [buttons] 40px;
+  grid-auto-flow: row;
+  justify-items: center;
+  align-items: center;
+  background-color: #d3ffe9;
+  padding: 0 10px;
+}
+.editor__functions {
+  grid-column: functions;
+  grid-row-start: editorPlace;
+  grid-row-end: buttons-end;
+}
+.editor__interact {
+  grid-column: interact;
+  grid-row-start: editorPlace;
+  padding: 10px 0 0 0;
+}
+.editor__interact canvas {
+  border: 1px solid #000;
+}
+.editor__buttons {
+  grid-column: interact;
+  grid-row: buttons;
+}
+.editor__buttons button {
+  margin: 0;
+}
+button {
+  margin: 10px auto;
+}
+.interview {
+  grid-column: interview;
+  grid-row: content;
+  padding: 0 20px;
+}
