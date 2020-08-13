@@ -493,9 +493,6 @@ function drawScheme(vertices, height, texture, fill) {
             colors.push(texture[0], texture[1], texture[2]);
         }
 
-        //нормали
-        normals = getNormals(vertices, '2d');
-
         if (fill) {
             if (fill === 'fan') {
                 //добавление центра многоугольника для закрашивания веером
@@ -512,11 +509,12 @@ function drawScheme(vertices, height, texture, fill) {
             for (let i = 0; i < vertexArray.length / 3; i++) {
                 colors.push(texture[0], texture[1], texture[2]);
             }
+            if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), 3)) return -1;
         }
 
         if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
         if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-        if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), 3)) return -1;
+        
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
