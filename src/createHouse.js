@@ -1348,11 +1348,11 @@ function initEventHandlers(canvas, currentAngle) {
             }
             currentAngle = [0, 0];
         }
-        let tick = function () { // Start drawing
-            draw();
-            requestAnimationFrame(tick, canvas);
-        };
-        tick();
+        // let tick = function () { // Start drawing
+        //     draw();
+        //     requestAnimationFrame(tick, canvas);
+        // };
+        // tick();
     }
 }
 /*---------------------------КОНЕЦ РАБОТА С ВИДОМ НА МОДЕЛЬ-----------------------------------------*/
