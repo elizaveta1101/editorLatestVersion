@@ -513,8 +513,9 @@ function drawScheme(vertices, height, texture, fill) {
         }
 
         if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
+        console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
         if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-        
+        console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -939,7 +940,7 @@ function drawShapeDown(event, obj) {
             drawShapeMove(event, obj);
         }
     } else if (event.which == 3) {
-        if (drawClick > 0) {
+        if (obj.vertices.length / 2 % (drawClick + 1) === 0) {
             obj.vertices.pop();
             obj.vertices.pop();
         }
