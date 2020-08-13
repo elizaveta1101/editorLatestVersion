@@ -1086,7 +1086,7 @@ function getNormals(vertices, mode) {
         }
         let k;
         if (mode === '2d') {
-            k = 2;
+            k = 1;
         } else {
             k = 4;
         }
@@ -1094,6 +1094,9 @@ function getNormals(vertices, mode) {
             normals.push(n.x, n.y, 0.0);
         }
     }
+    if (mode === '2d') {
+        normals.push(n.x, n.y, 0.0);
+    } 
     return normals;
 }
 
