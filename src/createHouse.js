@@ -484,11 +484,8 @@ function drawScheme(vertices, height, texture, fill) {
         let vertexArray = [];
 
         //вершины
-        for (let i = 0; i < vertices.length; i++) {
-            vertexArray.push(vertices[i]);
-            if (i % 2 === 1) {
-                vertexArray.push(height);
-            }
+        for (let i = 0; i < vertices.length; i += 2) {
+            vertexArray.push(vertices[i], vertices[i + 1], height); //A, B, ...
         }
 
         //цвета вершин
