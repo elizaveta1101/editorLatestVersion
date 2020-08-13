@@ -924,12 +924,17 @@ function drawShapeDown(event, obj) {
         x = ((x - rect.left) - middle_X) / middle_X;
         y = (middle_Y - (y - rect.top)) / middle_Y;
 
-        xc = x;
-        yc = y;
+        // xc = x;
+        // yc = y;
 
+        drawClick++;
+        if (obj.vertices.length/2 === drawClick) {
+            obj.vertices.pop();
+            obj.vertices.pop();
+        }
         obj.vertices.push(x, y);
         draw();
-        drawClick++;
+        console.log(obj.vertices);
         canvas.onmousemove = function (event) {
             drawShapeMove(event, obj);
         }
