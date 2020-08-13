@@ -297,6 +297,8 @@ function initArrayBuffer(gl, attribute, data, num) {
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     // Assign the buffer object to the attribute variable
     let a_attribute = gl.getAttribLocation(shaderProgram, attribute);
+    console.log(attribute);
+    console.log(a_attribute);
     if (a_attribute < 0) {
         console.log('Failed to get the storage location of ' + attribute);
         return false;
