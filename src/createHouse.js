@@ -887,9 +887,9 @@ function drawEditor(obj, btn) {
             canvas.onmousedown = function (event) {
                 drawShapeDown(event, obj);
             }
-            canvas.onmousemove = function (event) {
-                drawShapeMove(event, obj);
-            }
+            // canvas.onmousemove = function (event) {
+            //     drawShapeMove(event, obj);
+            // }
         } else
         if (btn.innerHTML === 'Редактировать') {
             canvas.onmousedown = function (event) {
@@ -900,12 +900,12 @@ function drawEditor(obj, btn) {
         canvas.onmousedown = function () {
             return false;
         }
-        canvas.onmousemove = function () {
-            return false;
-        }
-        canvas.onmouseup = function () {
-            return false;
-        }
+        // canvas.onmousemove = function () {
+        //     return false;
+        // }
+        // canvas.onmouseup = function () {
+        //     return false;
+        // }
         gl.uniform1i(u_PickedVertex, -1);
         draw();
     }
@@ -932,7 +932,9 @@ function drawShapeDown(event, obj) {
         obj.vertices.push(x, y);
         draw();
         drawClick++;
-
+        canvas.onmousemove = function (event) {
+            drawShapeMove(event, obj);
+        }
     } else if (event.which == 3) {
         if (drawClick > 0) {
             obj.vertices.pop();
@@ -945,6 +947,7 @@ function drawShapeDown(event, obj) {
         drawEditor(obj, null);
         editorMode = true;
         draw();
+        canvas.onmousemove = function() {return false;}
     }
 }
 
@@ -996,6 +999,8 @@ function changeShapeDown(event, obj) {
         gl.uniform1i(u_PickedVertex, -1);
         draw();
         drawClick = 0;
+        canvas.onmousemove = function() {return false;}
+        canvas.onmouseup = function() {return false;}
     }
 }
 
