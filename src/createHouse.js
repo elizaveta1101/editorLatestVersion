@@ -552,9 +552,11 @@ function drawScheme(vertices, height, texture, fill) {
 function drawPoints(vertices) {
     gl.uniform1i(u_PointsMode, 1);
     let vertexNumber = [];
-    for (let i = 1; i <= vertices.length / 2; i++) {
-        vertexNumber.push(i);
+    for (let i = 0; i < vertices.length / 2; i++) {
+        vertexNumber.push(i+1);
     }
+    console.log(vertexNumber);
+
     let vertexArray = [];
     for (let i = 0; i < vertices.length; i += 2) {
         vertexArray.push(vertices[i], vertices[i + 1], 0.5); //A, B, ...
