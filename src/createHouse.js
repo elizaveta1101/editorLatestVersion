@@ -78,7 +78,7 @@ let shaderProgram; //программа
 
 // let a_Position;
 // let a_Color;
-let a_normal;
+// let a_normal;
 let u_MvpMatrix;
 let u_ModelMatrix;
 let u_NormalMatrix;
@@ -104,9 +104,9 @@ let perspectiveMatrix = new Matrix4();
 let mvpMatrix = new Matrix4();
 let normalMatrix = new Matrix4();
 
-let colors = [];
-let normals = [];
-let indices = [];
+// let colors = [];
+// let normals = [];
+// let indices = [];
 
 
 //заготовленные формы фундамента
@@ -323,24 +323,6 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.uniform1i(u_PointsMode, 0);
-    //оси координат
-    vertexArray = [
-        0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //x (red)
-        0.0, 0.0, 0.0, 0.0, 1.0, 0.0, //y (grey)
-        0.0, 0.0, 0.0, 0.0, 0.0, 1.0, //z (green)
-    ];
-    console.log(vertexArray);
-
-    let count = vertexArray.length / 3;
-    colors = [];
-    for (let i = 0; i < count; i++) {
-        colors.push(0.0, 0.0, 0.0);
-    }
-    console.log(colors);
-    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
-    console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
-    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-    gl.drawArrays(gl.LINES, 0, count);
     
     modelMatrix.pushMatrix();
 
@@ -377,16 +359,37 @@ function draw() {
 
     modelMatrix.popMatrix();
     setMatrixUniforms();
+
+    // //оси координат
+    // let axisArray = [
+    //     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //x (red)
+    //     0.0, 0.0, 0.0, 0.0, 1.0, 0.0, //y (grey)
+    //     0.0, 0.0, 0.0, 0.0, 0.0, 1.0, //z (green)
+    // ];
+    // console.log(axisArray);
+
+    // let count = axisArray.length / 3;
+    // console.log(count);
+    // colors = [];
+    // for (let i = 0; i < count; i++) {
+    //     colors.push(0.0, 0.0, 0.0);
+    // }
+    // console.log(colors);
+    // if (!initArrayBuffer(gl, 'a_Position', new Float32Array(axisArray), 3)) return -1;
+    // console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
+    // if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
+    // console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
+    // gl.drawArrays(gl.LINES, 0, count);
 }
 
 function drawObject(vertices, height, texture, fill, flip) {
     gl.uniform1i(u_PointsMode, 0);
     if (vertices) {
-        colors = [];
-        normals = [];
-        indices = [];
+        let colors = [];
+        let normals = [];
+        let indices = [];
 
-        vertexArray = [];
+        let vertexArray = [];
 
         // Create a cube
         //    A0----- B0
@@ -474,10 +477,12 @@ function drawObject(vertices, height, texture, fill, flip) {
 function drawScheme(vertices, height, texture, fill) {
     gl.uniform1i(u_PointsMode, 0);
     if (vertices) {
-        colors = [];
-        normals = [];
-        indices = [];
-        vertexArray = [];
+        let colors = [];
+        let normals = [];
+        let indices = [];
+
+        let vertexArray = [];
+
         //вершины
         for (let i = 0; i < vertices.length; i++) {
             vertexArray.push(vertices[i]);
@@ -519,10 +524,11 @@ function drawScheme(vertices, height, texture, fill) {
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
         //индексы
-        for (let i = 0; i < vertexArray.length; i += 3) {
-            indices.push(i / 3);
+        for (let i = 0; i < vertexArray.length/3; i++) {
+            indices.push(i);
             //0, 1, 2, 3, 4, 5, 6...
         }
+        console.log(indices);
 
         let indexBuffer = gl.createBuffer();
         if (!indexBuffer) {
@@ -555,7 +561,7 @@ function drawPoints(vertices) {
     for (let i = 0; i < vertices.length; i += 2) {
         vertexArray.push(vertices[i], vertices[i + 1], 0.5); //A, B, ...
     }
-    colors = [];
+    let colors = [];
     for (let i = 0; i < vertices.length / 2; i++) {
         colors.push(0.0, 0.0, 0.0);
     }
