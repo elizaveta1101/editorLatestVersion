@@ -22,20 +22,21 @@ const VSHADER =
     '  gl_Position = u_MvpMatrix * a_Position;\n' +
     '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
     '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
-
-    '  int vertex = int(a_Vertex);\n' +
-    '  vec3 color = (vertex == u_PickedVertex && u_PointsMode) ? vec3(1.0, 0.0, 0.0) : a_Color.rgb;\n' +
-    '  if(u_PickedVertex == 0) {\n' +
-    '    v_Color = vec4(color, a_Vertex/255.0);\n' +
-    '  } else {\n' +
-    '    v_Color = vec4(color, 1.0);\n' +
-    '  }\n' +
-    '  if (u_PointsMode) {\n' +
-    '    v_Pick=1.0;\n' +
-    '  } else {\n' +
-    '    v_Pick=0.0;\n' +
-    '  }\n' +
-    // '  v_Color = a_Color;\n' +
+    '      int vertex = int(a_Vertex);\n' +
+    '      vec3 color = (vertex == u_PickedVertex && u_PointsMode) ? vec3(1.0, 0.0, 0.0) : a_Color.rgb;\n' +
+    '      if (u_PickedVertex == 0) {\n' +
+    '        v_Color = vec4(color, a_Vertex/255.0);\n' +
+    '      } else {\n' +
+    '        v_Color = vec4(color, 1.0);\n' +
+    '      }\n' +
+    '      if (u_PointsMode) {\n' +
+    '        v_Pick=1.0;\n' +
+    '      } else {\n' +
+    '        v_Pick=0.0;\n' +
+    '      }\n' +
+    // '  } else {\n' +
+    // '      v_Color = a_Color;\n' +
+    // '  }\n' +
     '  gl_PointSize = 7.0;\n' +
     '}\n';
 
@@ -78,7 +79,7 @@ let shaderProgram; //программа
 
 // let a_Position;
 // let a_Color;
-// let a_normal;
+let a_normal;
 let u_MvpMatrix;
 let u_ModelMatrix;
 let u_NormalMatrix;
@@ -104,9 +105,9 @@ let perspectiveMatrix = new Matrix4();
 let mvpMatrix = new Matrix4();
 let normalMatrix = new Matrix4();
 
-// let colors = [];
-// let normals = [];
-// let indices = [];
+let colors = [];
+let normals = [];
+let indices = [];
 
 
 //заготовленные формы фундамента
@@ -116,8 +117,8 @@ let exampleShapes = [
         0.5, -0.5,
         0, -0.5,
         0, 0,
-        -0.5, 0,
-        -0.5, 0.5
+    -0.5, 0,
+    -0.5, 0.5
     ],
 
     [-0.5, 0.7,
@@ -127,19 +128,19 @@ let exampleShapes = [
         0.7, -0.5,
         0.5, -0.5,
         0.5, -0.7,
-        -0.5, -0.7,
-        -0.5, -0.5,
-        -0.7, -0.5,
-        -0.7, 0.5,
-        -0.5, 0.5,
-        -0.5, 0.7
+    -0.5, -0.7,
+    -0.5, -0.5,
+    -0.7, -0.5,
+    -0.7, 0.5,
+    -0.5, 0.5,
+    -0.5, 0.7
     ],
 
     [-0.5, 0.5,
         0.5, 0.5,
         0.5, -0.5,
-        -0.5, -0.5,
-        -0.5, 0.5
+    -0.5, -0.5,
+    -0.5, 0.5
     ],
 
     [-0.2, 0.8,
@@ -151,14 +152,14 @@ let exampleShapes = [
         0.2, -0.1,
         0.1, -0.2,
         0.2, -0.8,
-        -0.2, -0.8,
-        -0.1, -0.2,
-        -0.2, -0.1,
-        -0.8, -0.2,
-        -0.8, 0.2,
-        -0.2, 0.1,
-        -0.1, 0.2,
-        -0.2, 0.8
+    -0.2, -0.8,
+    -0.1, -0.2,
+    -0.2, -0.1,
+    -0.8, -0.2,
+    -0.8, 0.2,
+    -0.2, 0.1,
+    -0.1, 0.2,
+    -0.2, 0.8
     ]
 ];
 
@@ -297,12 +298,12 @@ function initArrayBuffer(gl, attribute, data, type, num) {
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     // Assign the buffer object to the attribute variable
     let a_attribute = gl.getAttribLocation(shaderProgram, attribute);
-    console.log(attribute);
-    console.log(a_attribute);
     if (a_attribute < 0) {
         console.log('Failed to get the storage location of ' + attribute);
         return false;
     }
+    // console.log(attribute);
+    // console.log(a_attribute);
     gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);
     // Enable the assignment of the buffer object to the attribute variable
     gl.enableVertexAttribArray(a_attribute);
@@ -325,7 +326,28 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.uniform1i(u_PointsMode, 0);
-    
+    //оси координат
+    let axisArray = [
+        0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //x (red)
+        0.0, 0.0, 0.0, 0.0, 1.0, 0.0, //y (grey)
+        0.0, 0.0, 0.0, 0.0, 0.0, 1.0, //z (green)
+    ];
+
+    let count = axisArray.length / 3;
+    let colors = [];
+    for (let i = 0; i < count; i++) {
+        colors.push(0.0, 0.0, 0.0);
+    }
+    let vertexNumber = [];
+    for (let i = 0; i < axisArray.length / 3; i++) {
+        vertexNumber.push(i + 1);
+    }
+    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(axisArray), gl.FLOAT, 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Vertex', new Uint8Array(vertexNumber), gl.UNSIGNED_BYTE, 1)) return -1;
+    gl.drawArrays(gl.LINES, 0, count);
+
     modelMatrix.pushMatrix();
 
     for (obj in scene.house) {
@@ -341,7 +363,7 @@ function draw() {
                     drawScheme(scene.house[obj].innerVertices, 0, [0, 0, 0], false);
                 }
                 if (editorMode) {
-                    drawPoints(scene.house[obj].vertices);
+                    drawPoints(scene.house[obj].vertices, [0, 0, 0]);
                 }
             } else if (obj === 'outerWalls') {
                 for (let i = 0; i < scene.house.floors - 1; i++) {
@@ -361,22 +383,6 @@ function draw() {
 
     modelMatrix.popMatrix();
     setMatrixUniforms();
-
-    //оси координат
-    let axisArray = [
-        0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //x (red)
-        0.0, 0.0, 0.0, 0.0, 1.0, 0.0, //y (grey)
-        0.0, 0.0, 0.0, 0.0, 0.0, 1.0, //z (green)
-    ];
-
-    let count = axisArray.length / 3;
-    colors = [];
-    for (let i = 0; i < count; i++) {
-        colors.push(0.0, 0.0, 0.0);
-    }
-    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(axisArray), gl.FLOAT,  3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
-    gl.drawArrays(gl.LINES, 0, count);
 }
 
 function drawObject(vertices, height, texture, fill, flip) {
@@ -385,8 +391,8 @@ function drawObject(vertices, height, texture, fill, flip) {
         let colors = [];
         let normals = [];
         let indices = [];
-
         let vertexArray = [];
+        let vertexNumber = [];
 
         // Create a cube
         //    A0----- B0
@@ -451,6 +457,11 @@ function drawObject(vertices, height, texture, fill, flip) {
             }
         }
 
+        for (let i = 0; i < indices.length; i++) {
+            vertexNumber.push(i + 1);
+        }
+        if (!initArrayBuffer(gl, 'a_Vertex', new Uint8Array(vertexNumber), gl.UNSIGNED_BYTE, 1)) return -1;
+
         let indexBuffer = gl.createBuffer();
         if (!indexBuffer) {
             console.log('Failed to create the buffer object');
@@ -477,17 +488,22 @@ function drawScheme(vertices, height, texture, fill) {
         let colors = [];
         let normals = [];
         let indices = [];
-
         let vertexArray = [];
-
+        let vertexNumber = [];
         //вершины
-        for (let i = 0; i < vertices.length; i += 2) {
-            vertexArray.push(vertices[i], vertices[i + 1], height); //A, B, ...
+        for (let i = 0; i < vertices.length; i++) {
+            vertexArray.push(vertices[i]);
+            if (i % 2 === 1) {
+                vertexArray.push(height);
+            }
         }
-
         //цвета вершин
         for (let i = 0; i < vertexArray.length / 3; i++) {
             colors.push(texture[0], texture[1], texture[2]);
+        }
+        //номера вершин
+        for (let i = 0; i < vertices.length / 2; i++) {
+            vertexNumber.push(i + 1);
         }
 
         if (fill) {
@@ -495,6 +511,8 @@ function drawScheme(vertices, height, texture, fill) {
                 //добавление центра многоугольника для закрашивания веером
                 let center = getPolygonCenter(vertices);
                 vertexArray.unshift(center[0], center[1], height);
+                vertexNumber.push(vertexNumber.length);
+
             }
 
             normals = [];
@@ -506,16 +524,23 @@ function drawScheme(vertices, height, texture, fill) {
             for (let i = 0; i < vertexArray.length / 3; i++) {
                 colors.push(texture[0], texture[1], texture[2]);
             }
-            if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), gl.FLOAT, 3)) return -1;
         }
+
+        
 
         if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
         if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+        if (fill) {
+            if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), gl.FLOAT, 3)) return -1;
+        } else {
+            if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+        }
+        if (!initArrayBuffer(gl, 'a_Vertex', new Uint8Array(vertexNumber), gl.UNSIGNED_BYTE, 1)) return -1;
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
         //индексы
-        for (let i = 0; i < vertexArray.length/3; i++) {
+        for (let i = 0; i < vertexArray.length/3; i ++) {
             indices.push(i);
             //0, 1, 2, 3, 4, 5, 6...
         }
@@ -545,22 +570,20 @@ function drawPoints(vertices) {
     gl.uniform1i(u_PointsMode, 1);
     let vertexNumber = [];
     for (let i = 0; i < vertices.length / 2; i++) {
-        vertexNumber.push(i+1);
+        vertexNumber.push(i + 1);
     }
-    console.log(vertexNumber);
-
     let vertexArray = [];
     for (let i = 0; i < vertices.length; i += 2) {
         vertexArray.push(vertices[i], vertices[i + 1], 0.5); //A, B, ...
     }
-    let colors = [];
+    colors = [];
     for (let i = 0; i < vertices.length / 2; i++) {
         colors.push(0.0, 0.0, 0.0);
     }
 
     if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
     if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Vertex', new Float32Array(vertexNumber), gl.UNSIGNED_BYTE, 1)) return -1;
+
     gl.drawArrays(gl.POINTS, 0, vertices.length / 2);
 }
 
@@ -882,25 +905,26 @@ function drawEditor(obj, btn) {
             canvas.onmousedown = function (event) {
                 drawShapeDown(event, obj);
             }
-            // canvas.onmousemove = function (event) {
-            //     drawShapeMove(event, obj);
-            // }
-        } else
-        if (btn.innerHTML === 'Редактировать') {
-            canvas.onmousedown = function (event) {
-                changeShapeDown(event, obj);
+
+            canvas.onmousemove = function (event) {
+                drawShapeMove(event, obj);
             }
-        }
+        } else
+            if (btn.innerHTML === 'Редактировать') {
+                canvas.onmousedown = function (event) {
+                    changeShapeDown(event, obj);
+                }
+            }
     } else {
         canvas.onmousedown = function () {
             return false;
         }
-        // canvas.onmousemove = function () {
-        //     return false;
-        // }
-        // canvas.onmouseup = function () {
-        //     return false;
-        // }
+        canvas.onmousemove = function () {
+            return false;
+        }
+        canvas.onmouseup = function () {
+            return false;
+        }
         gl.uniform1i(u_PickedVertex, -1);
         draw();
     }
@@ -921,22 +945,15 @@ function drawShapeDown(event, obj) {
         x = ((x - rect.left) - middle_X) / middle_X;
         y = (middle_Y - (y - rect.top)) / middle_Y;
 
-        // xc = x;
-        // yc = y;
+        xc = x;
+        yc = y;
 
-        drawClick++;
-        if (obj.vertices.length/2 === drawClick) {
-            obj.vertices.pop();
-            obj.vertices.pop();
-        }
         obj.vertices.push(x, y);
         draw();
-        console.log(obj.vertices);
-        canvas.onmousemove = function (event) {
-            drawShapeMove(event, obj);
-        }
+        drawClick++;
+
     } else if (event.which == 3) {
-        if (obj.vertices.length / 2 % (drawClick + 1) === 0) {
+        if (drawClick > 0) {
             obj.vertices.pop();
             obj.vertices.pop();
         }
@@ -947,7 +964,6 @@ function drawShapeDown(event, obj) {
         drawEditor(obj, null);
         editorMode = true;
         draw();
-        canvas.onmousemove = function() {return false;}
     }
 }
 
@@ -999,8 +1015,6 @@ function changeShapeDown(event, obj) {
         gl.uniform1i(u_PickedVertex, -1);
         draw();
         drawClick = 0;
-        canvas.onmousemove = function() {return false;}
-        canvas.onmouseup = function() {return false;}
     }
 }
 
@@ -1099,9 +1113,6 @@ function getNormals(vertices, mode) {
             normals.push(n.x, n.y, 0.0);
         }
     }
-    if (mode === '2d') {
-        normals.push(n.x, n.y, 0.0);
-    } 
     return normals;
 }
 
@@ -1345,11 +1356,6 @@ function initEventHandlers(canvas, currentAngle) {
             }
             currentAngle = [0, 0];
         }
-        // let tick = function () { // Start drawing
-        //     draw();
-        //     requestAnimationFrame(tick, canvas);
-        // };
-        // tick();
     }
 }
 /*---------------------------КОНЕЦ РАБОТА С ВИДОМ НА МОДЕЛЬ-----------------------------------------*/
