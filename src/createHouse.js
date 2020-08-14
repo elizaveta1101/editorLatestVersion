@@ -512,7 +512,6 @@ function drawScheme(vertices, height, texture, fill) {
                 let center = getPolygonCenter(vertices);
                 vertexArray.unshift(center[0], center[1], height);
                 vertexNumber.push(vertexNumber.length);
-
             }
 
             normals = [];
