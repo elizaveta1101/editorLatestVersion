@@ -285,7 +285,7 @@ function initVariables() {
     gl.uniform1i(u_PointsMode, 0); //0 - не точки, 1 - точки
 }
 
-function initArrayBuffer(gl, attribute, data, num) {
+function initArrayBuffer(gl, attribute, data, type, num) {
     // Create a buffer object
     let buffer = gl.createBuffer();
     if (!buffer) {
@@ -303,7 +303,7 @@ function initArrayBuffer(gl, attribute, data, num) {
         console.log('Failed to get the storage location of ' + attribute);
         return false;
     }
-    gl.vertexAttribPointer(a_attribute, num, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);
     // Enable the assignment of the buffer object to the attribute variable
     gl.enableVertexAttribArray(a_attribute);
     return true;
@@ -341,7 +341,7 @@ function draw() {
                     drawScheme(scene.house[obj].innerVertices, 0, [0, 0, 0], false);
                 }
                 if (editorMode) {
-                    drawPoints(scene.house[obj].vertices, [0, 0, 0]);
+                    drawPoints(scene.house[obj].vertices);
                 }
             } else if (obj === 'outerWalls') {
                 for (let i = 0; i < scene.house.floors - 1; i++) {
@@ -362,26 +362,21 @@ function draw() {
     modelMatrix.popMatrix();
     setMatrixUniforms();
 
-    // //оси координат
-    // let axisArray = [
-    //     0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //x (red)
-    //     0.0, 0.0, 0.0, 0.0, 1.0, 0.0, //y (grey)
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 1.0, //z (green)
-    // ];
-    // console.log(axisArray);
+    //оси координат
+    let axisArray = [
+        0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //x (red)
+        0.0, 0.0, 0.0, 0.0, 1.0, 0.0, //y (grey)
+        0.0, 0.0, 0.0, 0.0, 0.0, 1.0, //z (green)
+    ];
 
-    // let count = axisArray.length / 3;
-    // console.log(count);
-    // colors = [];
-    // for (let i = 0; i < count; i++) {
-    //     colors.push(0.0, 0.0, 0.0);
-    // }
-    // console.log(colors);
-    // if (!initArrayBuffer(gl, 'a_Position', new Float32Array(axisArray), 3)) return -1;
-    // console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
-    // if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-    // console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
-    // gl.drawArrays(gl.LINES, 0, count);
+    let count = axisArray.length / 3;
+    colors = [];
+    for (let i = 0; i < count; i++) {
+        colors.push(0.0, 0.0, 0.0);
+    }
+    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(axisArray), gl.FLOAT,  3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+    gl.drawArrays(gl.LINES, 0, count);
 }
 
 function drawObject(vertices, height, texture, fill, flip) {
@@ -426,9 +421,9 @@ function drawObject(vertices, height, texture, fill, flip) {
         //     normals = flipNormals(normals);
         // }
 
-        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
-        if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-        if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), gl.FLOAT, 3)) return -1;
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -511,13 +506,11 @@ function drawScheme(vertices, height, texture, fill) {
             for (let i = 0; i < vertexArray.length / 3; i++) {
                 colors.push(texture[0], texture[1], texture[2]);
             }
-            if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), 3)) return -1;
+            if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), gl.FLOAT, 3)) return -1;
         }
 
-        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
-        console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
-        if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-        console.log(gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE));
+        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
+        if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -526,7 +519,6 @@ function drawScheme(vertices, height, texture, fill) {
             indices.push(i);
             //0, 1, 2, 3, 4, 5, 6...
         }
-        console.log(indices);
 
         let indexBuffer = gl.createBuffer();
         if (!indexBuffer) {
@@ -566,9 +558,9 @@ function drawPoints(vertices) {
         colors.push(0.0, 0.0, 0.0);
     }
 
-    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Vertex', new Float32Array(vertexNumber), 1)) return -1;
+    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Vertex', new Float32Array(vertexNumber), gl.UNSIGNED_BYTE, 1)) return -1;
     gl.drawArrays(gl.POINTS, 0, vertices.length / 2);
 }
 
