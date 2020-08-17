@@ -77,8 +77,6 @@ const gl = canvas.getContext("webgl", {
 
 let shaderProgram; //программа
 
-// let a_Position;
-// let a_Color;
 let a_normal;
 let u_MvpMatrix;
 let u_ModelMatrix;
@@ -117,8 +115,8 @@ let exampleShapes = [
         0.5, -0.5,
         0, -0.5,
         0, 0,
-    -0.5, 0,
-    -0.5, 0.5
+        -0.5, 0,
+        -0.5, 0.5
     ],
 
     [-0.5, 0.7,
@@ -128,19 +126,19 @@ let exampleShapes = [
         0.7, -0.5,
         0.5, -0.5,
         0.5, -0.7,
-    -0.5, -0.7,
-    -0.5, -0.5,
-    -0.7, -0.5,
-    -0.7, 0.5,
-    -0.5, 0.5,
-    -0.5, 0.7
+        -0.5, -0.7,
+        -0.5, -0.5,
+        -0.7, -0.5,
+        -0.7, 0.5,
+        -0.5, 0.5,
+        -0.5, 0.7
     ],
 
     [-0.5, 0.5,
         0.5, 0.5,
         0.5, -0.5,
-    -0.5, -0.5,
-    -0.5, 0.5
+        -0.5, -0.5,
+        -0.5, 0.5
     ],
 
     [-0.2, 0.8,
@@ -152,14 +150,14 @@ let exampleShapes = [
         0.2, -0.1,
         0.1, -0.2,
         0.2, -0.8,
-    -0.2, -0.8,
-    -0.1, -0.2,
-    -0.2, -0.1,
-    -0.8, -0.2,
-    -0.8, 0.2,
-    -0.2, 0.1,
-    -0.1, 0.2,
-    -0.2, 0.8
+        -0.2, -0.8,
+        -0.1, -0.2,
+        -0.2, -0.1,
+        -0.8, -0.2,
+        -0.8, 0.2,
+        -0.2, 0.1,
+        -0.1, 0.2,
+        -0.2, 0.8
     ]
 ];
 
@@ -195,8 +193,20 @@ scene.house = {};
 
 /*--------------------------------------------------------------------*/
 window.onload = function () {
-    canvas.width = 600;
-    canvas.height = 600;
+    let windowWidth = document.documentElement.clientWidth;
+    if (windowWidth<500) {
+        // alert(windowWidth/100);
+        canvas.width = Math.floor(windowWidth/100)*100;
+        canvas.height = Math.floor(windowWidth/100)*100;
+    } else if (windowWidth>1200) {
+        canvas.width = 600;
+        canvas.height = 600;
+    } else {
+        canvas.width = 450;
+        canvas.height = 450;
+    }
+    // canvas.width = 600;
+    // canvas.height = 600;
     document.querySelector('.editor__interact').appendChild(canvas);
     canvas.oncontextmenu = function () {
         return false;
@@ -302,8 +312,6 @@ function initArrayBuffer(gl, attribute, data, type, num) {
         console.log('Failed to get the storage location of ' + attribute);
         return false;
     }
-    // console.log(attribute);
-    // console.log(a_attribute);
     gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);
     // Enable the assignment of the buffer object to the attribute variable
     gl.enableVertexAttribArray(a_attribute);
@@ -525,7 +533,7 @@ function drawScheme(vertices, height, texture, fill) {
             }
         }
 
-        
+
 
         if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
         if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
@@ -539,7 +547,7 @@ function drawScheme(vertices, height, texture, fill) {
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
         //индексы
-        for (let i = 0; i < vertexArray.length/3; i ++) {
+        for (let i = 0; i < vertexArray.length / 3; i++) {
             indices.push(i);
             //0, 1, 2, 3, 4, 5, 6...
         }
@@ -605,26 +613,42 @@ function setStage() {
     let stageNumber = 0; //отслеживание номера стадии
 
     const stageInfo = document.querySelectorAll('.stageDescriptions>div'); //описание для каждой стадии (заголовок, описнаие и требуемые действия)
+    interviewDiv.innerHTML = stageInfo[0].innerHTML;
+
     const previousBtn = document.querySelector('.interview .previousStage');
     const nextBtn = document.querySelector('.interview .nextStage');
-    const shapeMenu = document.querySelector('#shape');
+    previousBtn.disabled = true;
+
+    let shapeMenu = document.querySelector('.interview .currentStage #shape');
+    // let initialShapeMenu = document.querySelector('.stageDescriptions .stageBasement #shape');
+    // let initialShapeMenuOptions = document.querySelectorAll('.stageDescriptions .stageBasement #shape option');
+    
     const numberOfShapes = exampleShapes.length;
+    let shapeBtn = document.querySelectorAll('.interview .currentStage button');
 
-    let shapeBtn = document.querySelectorAll('.editor__functions button');
-    interviewDiv.innerHTML = stageInfo[0].innerHTML;
-    previousBtn.setAttribute('disabled', true);
-
-    shapeMenu.setAttribute('disabled', true);
-    shapeMenu.onchange = function () {
-        let shapeNumber = shapeMenu.selectedOptions[0].value;
-        if (shapeNumber < numberOfShapes) {
-            shapeBtn.forEach(btn => {
-                btn.style.display = 'none';
-            });
-        } else {
-            shapeBtn.forEach(btn => {
-                btn.style.display = 'block';
-            });
+    if (shapeMenu) {
+        shapeMenu.onchange = function () {
+            let shapeNumber = shapeMenu.selectedOptions[0].value;
+            // console.log(shapeNumber);
+            // // initialShapeMenu.innerHTML = '';
+            // initialShapeMenuOptions.forEach(opt => {
+            //     if (opt.value===shapeNumber) {
+            //         opt.selected = true;
+            //     } else {
+            //         opt.selected = false;
+            //     } 
+            //     console.log(opt.value, opt.selected);
+            //     // initialShapeMenu.appendChild(opt);
+            // });
+            if (shapeNumber < numberOfShapes) {
+                shapeBtn.forEach(btn => {
+                    btn.style.display = 'none';
+                });
+            } else {
+                shapeBtn.forEach(btn => {
+                    btn.style.display = 'block';
+                });
+            }
         }
     }
 
@@ -639,8 +663,7 @@ function setStage() {
                         clearObj(scene.house[obj]);
                     }
                 }
-                shapeMenu.removeAttribute('disabled');
-                if (!(shapeMenu.selectedOptions[0].value < numberOfShapes)) {
+                if (shapeMenu && (shapeMenu.selectedOptions[0].value === numberOfShapes)) {
                     shapeBtn.forEach(btn => {
                         btn.style.display = 'block';
                     });
@@ -659,13 +682,18 @@ function setStage() {
     checkStage();
 
     previousBtn.onclick = function () {
-        if (stageNumber >= 0) {
+        if (stageNumber > 0) {
             stageNumber--;
             interviewDiv.innerHTML = stageInfo[stageNumber].innerHTML;
-            nextBtn.removeAttribute('disabled');
+            nextBtn.disabled = false;
         }
         if (stageNumber === 0) {
-            this.setAttribute('disabled', true);
+            this.disabled = true;
+            // shapeMenu.innerHTML = '';
+            // initialShapeMenuOptions.forEach(opt => {
+            //     console.log(opt.value, opt.selected);
+            //     shapeMenu.appendChild(opt);
+            // });
         }
         checkStage();
     }
@@ -674,15 +702,11 @@ function setStage() {
         if (stageNumber < stageInfo.length - 1) {
             stageNumber++;
             interviewDiv.innerHTML = stageInfo[stageNumber].innerHTML;
-            previousBtn.removeAttribute('disabled');
+            previousBtn.disabled = false;
         }
         if (stageNumber === stageInfo.length - 1) {
-            this.setAttribute('disabled', true);
+            this.disabled = true;
         }
-        shapeMenu.setAttribute('disabled', true);
-        shapeBtn.forEach(btn => {
-            btn.style.display = 'none';
-        });
         checkStage();
     }
 }
@@ -694,24 +718,28 @@ function createModel() {
 
     if (basement) {
         //получение вершин
-        const shapeMenu = document.querySelector('#shape');
+        const shapeMenu = document.querySelector('.interview .currentStage #shape');
         const numberOfShapes = exampleShapes.length;
-        let shapeNumber = shapeMenu.selectedOptions[0].value;
 
-        if (shapeNumber < numberOfShapes) {
-            basement.vertices = [...exampleShapes[shapeNumber]]; //берется заготовленный вариант  
+        if (shapeMenu) {
+            let shapeNumber = shapeMenu.selectedOptions[0].value;
+
+            if (shapeNumber < numberOfShapes) {
+                basement.vertices = [...exampleShapes[shapeNumber]]; //берется заготовленный вариант  
+            }
+
+            shapeMenu.addEventListener('change', function () {
+                if (shapeMenu.selectedOptions[0].value >= numberOfShapes) {
+                    set2D();
+                } else {
+                    if (outerWalls) {
+                        outerWalls.innerVertices = [];
+                    }
+                    createModel();
+                }
+            });
         }
 
-        shapeMenu.addEventListener('change', function () {
-            if (shapeMenu.selectedOptions[0].value >= numberOfShapes) {
-                set2D();
-            } else {
-                if (outerWalls) {
-                    outerWalls.innerVertices = [];
-                }
-                createModel();
-            }
-        });
         //получение высоты
         heightInput = document.querySelector(".interview div #basement");
         let heightInfoInput = document.querySelector(".stageDescriptions .stageBasement #basement");
@@ -827,74 +855,76 @@ function set3D() {
 
 function drawButtons() {
     let basement = scene.house.basement;
-    let shapeBtn = document.querySelectorAll('.editor__functions button');
+    let shapeBtn = document.querySelectorAll('.interview .currentStage button');
+    if (shapeBtn) {
+        let createBtn = shapeBtn[0];
+        let editBtn = shapeBtn[1];
+        let clearBtn = shapeBtn[2];
 
-    let createBtn = shapeBtn[0];
-    let editBtn = shapeBtn[1];
-    let clearBtn = shapeBtn[2];
-
-    if (basement.vertices.length > 0) {
-        createBtn.setAttribute('disabled', true);
-        editBtn.removeAttribute('disabled');
-    } else {
-        createBtn.removeAttribute('disabled');
-        editBtn.setAttribute('disabled', true);
-        clearBtn.setAttribute('disabled', true);
-    }
-
-    createBtn.onclick = function () {
-        if (createBtn.innerHTML === 'Построить') {
-            shapeBtn.forEach(btn => {
-                if (btn !== createBtn) {
-                    btn.setAttribute('disabled', true);
-                }
-            });
-            drawEditor(basement, createBtn);
-            createBtn.innerHTML = 'Закончить';
+        if (basement.vertices.length > 0) {
+            createBtn.setAttribute('disabled', true);
+            editBtn.removeAttribute('disabled');
         } else {
-            createBtn.innerHTML = 'Построить';
-            shapeBtn.forEach(btn => {
-                if (btn !== createBtn) {
-                    btn.removeAttribute('disabled');
-                }
-            });
-            drawEditor(basement, createBtn);
-            gl.uniform1i(u_PickedVertex, -1);
-            draw();
+            createBtn.removeAttribute('disabled');
+            editBtn.setAttribute('disabled', true);
+            clearBtn.setAttribute('disabled', true);
         }
-        drawButtons();
+
+        createBtn.onclick = function () {
+            if (createBtn.innerHTML === 'Построить') {
+                shapeBtn.forEach(btn => {
+                    if (btn !== createBtn) {
+                        btn.setAttribute('disabled', true);
+                    }
+                });
+                drawEditor(basement, createBtn);
+                createBtn.innerHTML = 'Закончить';
+            } else {
+                createBtn.innerHTML = 'Построить';
+                shapeBtn.forEach(btn => {
+                    if (btn !== createBtn) {
+                        btn.removeAttribute('disabled');
+                    }
+                });
+                drawEditor(basement, createBtn);
+                gl.uniform1i(u_PickedVertex, -1);
+                draw();
+            }
+            drawButtons();
+        }
+
+        editBtn.onclick = function () {
+            if (editBtn.innerHTML === 'Редактировать') {
+                shapeBtn.forEach(btn => {
+                    if (btn !== editBtn) {
+                        btn.setAttribute('disabled', true);
+                    }
+                });
+                drawEditor(basement, editBtn);
+                draw();
+                editBtn.innerHTML = 'Закончить';
+            } else {
+                editBtn.innerHTML = 'Редактировать';
+                shapeBtn.forEach(btn => {
+                    if (btn !== editBtn) {
+                        btn.removeAttribute('disabled');
+                    }
+                });
+                drawEditor(basement, editBtn);
+                draw();
+            }
+            drawButtons();
+        }
+
+        clearBtn.onclick = function () {
+            for (obj in scene.house) {
+                clearObj(scene.house[obj]);
+            }
+            draw();
+            drawButtons();
+        }
     }
 
-    editBtn.onclick = function () {
-        if (editBtn.innerHTML === 'Редактировать') {
-            shapeBtn.forEach(btn => {
-                if (btn !== editBtn) {
-                    btn.setAttribute('disabled', true);
-                }
-            });
-            drawEditor(basement, editBtn);
-            draw();
-            editBtn.innerHTML = 'Закончить';
-        } else {
-            editBtn.innerHTML = 'Редактировать';
-            shapeBtn.forEach(btn => {
-                if (btn !== editBtn) {
-                    btn.removeAttribute('disabled');
-                }
-            });
-            drawEditor(basement, editBtn);
-            draw();
-        }
-        drawButtons();
-    }
-
-    clearBtn.onclick = function () {
-        for (obj in scene.house) {
-            clearObj(scene.house[obj]);
-        }
-        draw();
-        drawButtons();
-    }
 }
 
 function drawEditor(obj, btn) {
@@ -904,16 +934,12 @@ function drawEditor(obj, btn) {
             canvas.onmousedown = function (event) {
                 drawShapeDown(event, obj);
             }
-
-            canvas.onmousemove = function (event) {
-                drawShapeMove(event, obj);
-            }
         } else
-            if (btn.innerHTML === 'Редактировать') {
-                canvas.onmousedown = function (event) {
-                    changeShapeDown(event, obj);
-                }
+        if (btn.innerHTML === 'Редактировать') {
+            canvas.onmousedown = function (event) {
+                changeShapeDown(event, obj);
             }
+        }
     } else {
         canvas.onmousedown = function () {
             return false;
@@ -946,6 +972,10 @@ function drawShapeDown(event, obj) {
 
         xc = x;
         yc = y;
+
+        canvas.onmousemove = function (event) {
+            drawShapeMove(event, obj);
+        }
 
         obj.vertices.push(x, y);
         draw();
