@@ -37,7 +37,7 @@ const VSHADER =
     // '  } else {\n' +
     // '      v_Color = a_Color;\n' +
     // '  }\n' +
-    '  gl_PointSize = 7.0;\n' +
+    '  gl_PointSize = 10.0;\n' +
     '}\n';
 
 
@@ -967,6 +967,7 @@ function drawEditor(obj, btn) {
                             let x = coor[0],
                                 y = coor[1];
                             changeShapeMove(x, y, obj, vertex);
+                            
                         }
                     }
                 }
