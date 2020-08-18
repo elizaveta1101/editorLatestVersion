@@ -924,7 +924,22 @@ function drawEditor(obj, btn) {
     let windowWidth = document.documentElement.clientWidth;
     const nextBtn = document.querySelector('.interview .nextStage');
     const interactiveBtn = document.querySelectorAll('.editor__buttons button');
-
+    let tstart = function (event) {
+        event.preventDefault();
+        let vertex = changeShapeDown(event);
+        body.classList.add('stop-scrolling');
+        canvas.addEventListener('touchmove', tmove(event, vertex));
+    }
+    let tmove = function (event, vertex) {
+        let coor = getTouchCoord(event);
+        let x = coor[0],
+            y = coor[1];
+        changeShapeMove(x, y, obj, vertex);
+    }
+    let tend = function () {
+        drawClick = 0;
+        body.classList.remove('stop-scrolling');
+    }
     if (editorMode) {
         nextBtn.disabled = true; //блокируем переход на другую стадию при редактировании
         interactiveBtn[0].disabled = true; //блокируем переход в 2д вид при редактировании
@@ -956,21 +971,24 @@ function drawEditor(obj, btn) {
         if (btn.innerHTML === 'Редактировать') {
             if (windowWidth < 1024) {
                 let body = document.querySelector('body');
-                canvas.ontouchstart = function (event) {
-                    let vertex = changeShapeDown(event);
-                    body.classList.add('stop-scrolling');
-                    canvas.ontouchmove = function (event) {
-                        let coor = getTouchCoord(event);
-                        let x = coor[0],
-                            y = coor[1];
-                        changeShapeMove(x, y, obj, vertex);
-                    }
-                    return false;
-                }
-                canvas.ontouchend = function () {
-                    drawClick = 0;
-                    body.classList.remove('stop-scrolling');
-                }
+                canvas.addEventListener('touchstart', tstart(event));
+                canvas.addEventListener('touchend', tend());
+
+                // canvas.ontouchstart = function (event) {
+                //     let vertex = changeShapeDown(event);
+                //     body.classList.add('stop-scrolling');
+                //     canvas.ontouchmove = function (event) {
+                //         let coor = getTouchCoord(event);
+                //         let x = coor[0],
+                //             y = coor[1];
+                //         changeShapeMove(x, y, obj, vertex);
+                //     }
+                //     return false;
+                // }
+                // canvas.ontouchend = function () {
+                //     drawClick = 0;
+                //     body.classList.remove('stop-scrolling');
+                // }
             } else {
                 canvas.onmousedown = function (event) {
                     let vertex = changeShapeDown(event);
@@ -1000,15 +1018,19 @@ function drawEditor(obj, btn) {
         canvas.onmouseup = function () {
             return false;
         }
-        canvas.ontouchstart = function () {
-            return false;
-        }
-        canvas.ontouchmove = function () {
-            return false;
-        }
-        canvas.ontouchend = function () {
-            return false;
-        }
+        // canvas.ontouchstart = function () {
+        //     return false;
+        // }
+        // canvas.ontouchmove = function () {
+        //     return false;
+        // }
+        // canvas.ontouchend = function () {
+        //     return false;
+        // }
+        canvas.removeEventListener('touchstart', tstart(event));
+        canvas.removeEventListener('touchmove', tmove(event, vertex));
+        canvas.removeEventListener('touchend', tend());
+
         gl.uniform1i(u_PickedVertex, -1);
         draw();
     }
