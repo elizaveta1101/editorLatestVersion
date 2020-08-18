@@ -954,7 +954,6 @@ function drawEditor(obj, btn) {
                     drawShapeMove(x, y, obj);
                 }
             }
-
         } else
         if (btn.innerHTML === 'Редактировать') {
             if (windowWidth < 1024) {
