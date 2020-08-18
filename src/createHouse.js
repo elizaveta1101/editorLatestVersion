@@ -938,8 +938,6 @@ function drawEditor(obj, btn) {
                         let coor = getTouchCoord(event);
                         let x = coor[0],
                             y = coor[1];
-                        console.log('here');
-                        console.log(event);
                         drawShapeDown(event, x, y, obj);
                     }
                 }
@@ -948,7 +946,6 @@ function drawEditor(obj, btn) {
                     let coor = getMouseCoord(event);
                     let x = coor[0],
                         y = coor[1];
-                        console.log(event);
                     drawShapeDown(event, x, y, obj);
                 }
                 canvas.onmousemove = function (event) {
@@ -961,17 +958,38 @@ function drawEditor(obj, btn) {
 
         } else
         if (btn.innerHTML === 'Редактировать') {
-            canvas.onmousedown = function (event) {
-                let vertex = changeShapeDown(event, obj);
-                canvas.onmousemove = function (event) {
-                    let coor = getMouseCoord(event);
-                    let x = coor[0],
-                        y = coor[1];
-                    changeShapeMove(x, y, obj, vertex);
+            if (windowWidth < 1024) {
+                canvas.ontouchstart = function (event) {
+                    if (event.target === canvas) {
+                        console.log('here');
+                        console.log(event);
+                        let vertex = changeShapeDown(event, obj);
+                        canvas.ontouchmove = function(event) {
+                            let coor = getTouchCoord(event);
+                            let x = coor[0],
+                                y = coor[1];
+                            changeShapeMove(x, y, obj, vertex);
+                        }
+                    }
                 }
-            }
-            canvas.onmouseup = function () {
-                drawClick = 0;
+                canvas.ontouchend = function () {
+                    drawClick=0;
+                }
+            } else {
+                canvas.onmousedown = function (event) {
+                    if (event.target === canvas) {
+                        let vertex = changeShapeDown(event, obj);
+                        canvas.onmousemove = function (event) {
+                            let coor = getMouseCoord(event);
+                            let x = coor[0],
+                                y = coor[1];
+                            changeShapeMove(x, y, obj, vertex);
+                        }
+                    }
+                }
+                canvas.onmouseup = function () {
+                    drawClick = 0;
+                }
             }
         }
     } else {
@@ -992,12 +1010,11 @@ function drawEditor(obj, btn) {
 let drawClick = 0; //отслеживание клика при рисовании
 
 function drawShapeDown(event, x, y, obj) {
-    if (event.which === 1 || event.type === 'touchstart') {
+    if (event.which === 1 || (event.touches && event.touches.length === 1)) {
         obj.vertices.push(x, y);
         draw();
         drawClick++;
-
-    } else if (event.which === 3 || event.type === 'touchstart' && event.touches.length===2) {
+    } else if (event.which === 3 || (event.touches && event.touches.length === 2)) {
         if (drawClick > 0) {
             obj.vertices.pop();
             obj.vertices.pop();
@@ -1026,25 +1043,25 @@ function drawShapeMove(x, y, obj) {
 }
 
 function changeShapeDown(event, obj) {
-    if (event.which == 1) {
-        let x = event.clientX,
-            y = event.clientY;
-        let rect = canvas.getBoundingClientRect();
-        if (rect.left <= x && x < rect.right && rect.top <= y && y < rect.bottom) {
-            x = x - rect.left;
-            y = rect.bottom - y;
-            let vertex = checkVertex(x, y, u_PickedVertex);
-            gl.uniform1i(u_PickedVertex, vertex);
-            draw();
-            drawClick++;
-            return vertex;
-        }
-    } else if (event.which == 3) {
-        gl.uniform1i(u_PickedVertex, -1);
-        draw();
-        drawClick = 0;
-        return null;
+    let x,y;
+    console.log(event);
+    if (event.which === 1) {
+        x = event.clientX;
+        y = event.clientY;
+    } else if (event.touches && event.touches.length === 1) {
+        x = event.touches[0].clientX;
+        y = event.touches[0].clientY;
+        console.log('here');
     }
+    let rect = canvas.getBoundingClientRect(); 
+    x = x - rect.left;
+    y = rect.bottom - y;
+    let vertex = checkVertex(x, y, u_PickedVertex);
+    gl.uniform1i(u_PickedVertex, vertex);
+    draw();
+    drawClick++;
+    return vertex;
+    
 }
 
 function changeShapeMove(x, y, obj, num) {
