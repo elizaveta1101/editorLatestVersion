@@ -22,21 +22,18 @@ const VSHADER =
     '  gl_Position = u_MvpMatrix * a_Position;\n' +
     '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
     '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
-    '      int vertex = int(a_Vertex);\n' +
-    '      vec3 color = (vertex == u_PickedVertex && u_PointsMode) ? vec3(1.0, 0.0, 0.0) : a_Color.rgb;\n' +
-    '      if (u_PickedVertex == 0) {\n' +
-    '        v_Color = vec4(color, a_Vertex/255.0);\n' +
-    '      } else {\n' +
-    '        v_Color = vec4(color, 1.0);\n' +
-    '      }\n' +
-    '      if (u_PointsMode) {\n' +
-    '        v_Pick=1.0;\n' +
-    '      } else {\n' +
-    '        v_Pick=0.0;\n' +
-    '      }\n' +
-    // '  } else {\n' +
-    // '      v_Color = a_Color;\n' +
-    // '  }\n' +
+    '  int vertex = int(a_Vertex);\n' +
+    '  vec3 color = (vertex == u_PickedVertex && u_PointsMode) ? vec3(1.0, 0.0, 0.0) : a_Color.rgb;\n' +
+    '  if (u_PickedVertex == 0) {\n' +
+    '    v_Color = vec4(color, a_Vertex/255.0);\n' +
+    '  } else {\n' +
+    '    v_Color = vec4(color, 1.0);\n' +
+    '  }\n' +
+    '  if (u_PointsMode) {\n' +
+    '    v_Pick=1.0;\n' +
+    '  } else {\n' +
+    '    v_Pick=0.0;\n' +
+    '  }\n' +
     '  gl_PointSize = 10.0;\n' +
     '}\n';
 
@@ -295,23 +292,19 @@ function initVariables() {
 }
 
 function initArrayBuffer(gl, attribute, data, type, num) {
-    // Create a buffer object
     let buffer = gl.createBuffer();
     if (!buffer) {
         console.log('Failed to create the buffer object');
         return false;
     }
-    // Write date into the buffer object
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    // Assign the buffer object to the attribute variable
     let a_attribute = gl.getAttribLocation(shaderProgram, attribute);
     if (a_attribute < 0) {
         console.log('Failed to get the storage location of ' + attribute);
         return false;
     }
     gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);
-    // Enable the assignment of the buffer object to the attribute variable
     gl.enableVertexAttribArray(a_attribute);
     return true;
 }
@@ -429,9 +422,6 @@ function drawObject(vertices, height, texture, fill, flip) {
         }
         //нормали в вершинах
         normals = getNormals(vertices, '3d');
-        // if (flip) {
-        //     normals = flipNormals(normals);
-        // }
 
         if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
         if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
@@ -531,8 +521,6 @@ function drawScheme(vertices, height, texture, fill) {
             }
         }
 
-
-
         if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
         if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
         if (fill) {
@@ -618,10 +606,8 @@ function setStage() {
     previousBtn.disabled = true;
 
     let shapeMenu;
-    // let shapeMenu = document.querySelector('.interview .currentStage #shape');
     const numberOfShapes = exampleShapes.length;
     let shapeBtn;
-    // let shapeBtn = document.querySelectorAll('.interview .currentStage button');
     let selectedShape = 0;
 
     let floorMenu;
@@ -689,9 +675,6 @@ function setStage() {
         }
         if (stageNumber === 0) {
             this.disabled = true;
-            // shapeMenu = document.querySelector('.interview .currentStage #shape');
-            // shapeMenu.options.selectedIndex = selectedShape;
-            // shapeBtn = document.querySelectorAll('.interview .currentStage button');
             drawButtons();
         }
         checkStage();
@@ -924,22 +907,6 @@ function drawEditor(obj, btn) {
     let windowWidth = document.documentElement.clientWidth;
     const nextBtn = document.querySelector('.interview .nextStage');
     const interactiveBtn = document.querySelectorAll('.editor__buttons button');
-    let tstart = function (event) {
-        event.preventDefault();
-        let vertex = changeShapeDown(event);
-        body.classList.add('stop-scrolling');
-        canvas.addEventListener('touchmove', tmove(event, vertex));
-    }
-    let tmove = function (event, vertex) {
-        let coor = getTouchCoord(event);
-        let x = coor[0],
-            y = coor[1];
-        changeShapeMove(x, y, obj, vertex);
-    }
-    let tend = function () {
-        drawClick = 0;
-        body.classList.remove('stop-scrolling');
-    }
     if (editorMode) {
         nextBtn.disabled = true; //блокируем переход на другую стадию при редактировании
         interactiveBtn[0].disabled = true; //блокируем переход в 2д вид при редактировании
@@ -969,26 +936,21 @@ function drawEditor(obj, btn) {
             }
         } else
         if (btn.innerHTML === 'Редактировать') {
-            if (windowWidth < 1024) {
-                let body = document.querySelector('body');
-                canvas.addEventListener('touchstart', tstart(event));
-                canvas.addEventListener('touchend', tend());
-
-                // canvas.ontouchstart = function (event) {
-                //     let vertex = changeShapeDown(event);
-                //     body.classList.add('stop-scrolling');
-                //     canvas.ontouchmove = function (event) {
-                //         let coor = getTouchCoord(event);
-                //         let x = coor[0],
-                //             y = coor[1];
-                //         changeShapeMove(x, y, obj, vertex);
-                //     }
-                //     return false;
-                // }
-                // canvas.ontouchend = function () {
-                //     drawClick = 0;
-                //     body.classList.remove('stop-scrolling');
-                // }
+            if (windowWidth < 1024) {                
+                canvas.ontouchstart = function (event) {
+                    let vertex = changeShapeDown(event);
+                    console.log(event);
+                    canvas.ontouchmove = function (event) {
+                        let coor = getTouchCoord(event);
+                        let x = coor[0],
+                            y = coor[1];
+                        changeShapeMove(x, y, obj, vertex);
+                    }
+                    return false;
+                }
+                canvas.ontouchend = function () {
+                    drawClick = 0;
+                }
             } else {
                 canvas.onmousedown = function (event) {
                     let vertex = changeShapeDown(event);
@@ -1005,10 +967,6 @@ function drawEditor(obj, btn) {
             }
         }
     } else {
-        // if (btn.innerHTML !== 'Закончить') {
-        //     nextBtn.disabled = false;
-        // }
-
         canvas.onmousedown = function () {
             return false;
         }
@@ -1018,19 +976,15 @@ function drawEditor(obj, btn) {
         canvas.onmouseup = function () {
             return false;
         }
-        // canvas.ontouchstart = function () {
-        //     return false;
-        // }
-        // canvas.ontouchmove = function () {
-        //     return false;
-        // }
-        // canvas.ontouchend = function () {
-        //     return false;
-        // }
-        canvas.removeEventListener('touchstart', tstart(event));
-        canvas.removeEventListener('touchmove', tmove(event, vertex));
-        canvas.removeEventListener('touchend', tend());
-
+        canvas.ontouchstart = function () {
+            return false;
+        }
+        canvas.ontouchmove = function () {
+            return false;
+        }
+        canvas.ontouchend = function () {
+            return false;
+        }
         gl.uniform1i(u_PickedVertex, -1);
         draw();
     }
