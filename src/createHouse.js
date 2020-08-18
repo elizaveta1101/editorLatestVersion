@@ -939,7 +939,6 @@ function drawEditor(obj, btn) {
             if (windowWidth < 1024) {                
                 canvas.ontouchstart = function (event) {
                     let vertex = changeShapeDown(event);
-                    console.log(event);
                     canvas.ontouchmove = function (event) {
                         let coor = getTouchCoord(event);
                         let x = coor[0],
@@ -1366,48 +1365,74 @@ function initEventHandlers(canvas, currentAngle) {
     if (!editorMode && viewMode === '3d') {
         let dragging = false;
         let lastX, lastY;
-        canvas.onmousedown = function (ev) {
-            let x = ev.clientX;
-            let y = ev.clientY;
-            let rect = ev.target.getBoundingClientRect();
-
+        let windowWidth = document.documentElement.clientWidth;
+        let rotateDown = function(x,y) {
+            let rect = canvas.getBoundingClientRect();
             if (rect.left <= x && x < rect.right && rect.top <= y && y < rect.bottom) {
                 lastX = x;
                 lastY = y;
                 dragging = true;
             }
-            canvas.onmousemove = function (ev) {
+        }
+        let rotateMove = function (x,y) {
+            if (dragging) {
+                let factorX = 1 / 120; // The rotation ratio
+                let factorY = 0.005; // The rotation ratio
+                let dx = factorX * (x - lastX);
+                let dy = factorY * (y - lastY);
+                // dy должен меняться от
+                // currentAngle должен меняться от -1 до 2.5 
+                currentAngle[0] += dx;
+                currentAngle[1] = Math.max(Math.min(currentAngle[1] + dy, 2.5), -1);
+            }
+            lastX = x;
+            lastY = y;
+
+            modelMatrix.rotate(currentAngle[0], 0, 0, 1);
+            normalMatrix.setInverseOf(modelMatrix);
+            normalMatrix.transpose();
+            // viewMatrix.lookAt(-3, -3, Math.max(Math.min(currentAngle[1]+1.5, 4), 0.5), 0, 0, 0, 0, 0, 1);
+            // viewMatrix.rotate(currentAngle[1], 1, 0, 0);
+            //
+            setMatrixUniforms();
+            draw();
+        }
+        if (windowWidth<1024) {
+            canvas.ontouchstart = function(ev) {
+                let x = ev.touches[0].clientX;
+                let y = ev.touches[0].clientY;
+                rotateDown(x,y);
+
+                canvas.ontouchmove = function(ev) {
+                    let x = ev.touches[0].clientX;
+                    let y = ev.touches[0].clientY;
+                    rotateMove(x,y);
+                }
+            }
+            canvas.ontouchend = function() {
+                canvas.ontouchmove = function () {
+                    return false;
+                }
+                currentAngle = [0, 0];
+            }
+        } else {
+            canvas.onmousedown = function (ev) {
                 let x = ev.clientX;
                 let y = ev.clientY;
-
-                if (dragging) {
-                    let factorX = 1 / 120; // The rotation ratio
-                    let factorY = 0.005; // The rotation ratio
-                    let dx = factorX * (x - lastX);
-                    let dy = factorY * (y - lastY);
-                    // dy должен меняться от
-                    // currentAngle должен меняться от -1 до 2.5 
-                    currentAngle[0] += dx;
-                    currentAngle[1] = Math.max(Math.min(currentAngle[1] + dy, 2.5), -1);
+                rotateDown(x,y);
+    
+                canvas.onmousemove = function (ev) {
+                    let x = ev.clientX;
+                    let y = ev.clientY;
+                    rotateMove(x,y);
                 }
-                lastX = x;
-                lastY = y;
-
-                modelMatrix.rotate(currentAngle[0], 0, 0, 1);
-                normalMatrix.setInverseOf(modelMatrix);
-                normalMatrix.transpose();
-                // viewMatrix.lookAt(-3, -3, Math.max(Math.min(currentAngle[1]+1.5, 4), 0.5), 0, 0, 0, 0, 0, 1);
-                // viewMatrix.rotate(currentAngle[1], 1, 0, 0);
-                //
-                setMatrixUniforms();
-                draw();
             }
-        }
-        canvas.onmouseup = function (ev) {
-            canvas.onmousemove = function () {
-                return false;
+            canvas.onmouseup = function () {
+                canvas.onmousemove = function () {
+                    return false;
+                }
+                currentAngle = [0, 0];
             }
-            currentAngle = [0, 0];
         }
     }
 }
