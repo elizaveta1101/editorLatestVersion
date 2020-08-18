@@ -1382,7 +1382,7 @@ function rotateDown(ev, dragging) {
 }
 
 function initEventHandlers(canvas, currentAngle) {
-    if (!editorMode) {
+    if (!editorMode && viewMode==='3d') {
         let dragging = false;
         let lastX, lastY;
         canvas.onmousedown = function (ev) {
