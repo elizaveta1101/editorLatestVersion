@@ -620,11 +620,11 @@ function setStage() {
     let shapeMenu;
     // let shapeMenu = document.querySelector('.interview .currentStage #shape');
     const numberOfShapes = exampleShapes.length;
-    let shapeBtn; 
+    let shapeBtn;
     // let shapeBtn = document.querySelectorAll('.interview .currentStage button');
     let selectedShape = 0;
-   
-    let floorMenu; 
+
+    let floorMenu;
     let selectedFloor = 0;
     checkStage = function () {
         switch (stageNumber) {
@@ -669,7 +669,7 @@ function setStage() {
                 floorMenu.options.selectedIndex = selectedFloor;
                 scene.house.floors = selectedFloor + 1;
                 draw();
-                floorMenu.onchange = function() {
+                floorMenu.onchange = function () {
                     selectedFloor = floorMenu.options.selectedIndex;
                     scene.house.floors = selectedFloor + 1;
                     draw();
@@ -835,7 +835,7 @@ function set3D() {
 function drawButtons() {
     let basement = scene.house.basement;
     let shapeBtn = document.querySelectorAll('.interview .currentStage button');
-    
+
     const nextBtn = document.querySelector('.interview .nextStage');
     const interactiveBtn = document.querySelectorAll('.editor__buttons button');
 
@@ -890,7 +890,7 @@ function drawButtons() {
                 drawEditor(basement, editBtn);
                 draw();
                 editBtn.innerHTML = 'Закончить';
-                
+
             } else {
                 editBtn.innerHTML = 'Редактировать';
                 shapeBtn.forEach(btn => {
@@ -961,9 +961,9 @@ function drawEditor(obj, btn) {
                 let body = document.querySelector('body');
                 canvas.ontouchstart = function (event) {
                     if (event.target === canvas) {
-                        let vertex = changeShapeDown(event, obj);
+                        let vertex = changeShapeDown(event);
                         body.classList.add('stop-scrolling');
-                        canvas.ontouchmove = function(event) {
+                        canvas.ontouchmove = function (event) {
                             let coor = getTouchCoord(event);
                             let x = coor[0],
                                 y = coor[1];
@@ -972,13 +972,13 @@ function drawEditor(obj, btn) {
                     }
                 }
                 canvas.ontouchend = function () {
-                    drawClick=0;
+                    drawClick = 0;
                     body.classList.remove('stop-scrolling');
                 }
             } else {
                 canvas.onmousedown = function (event) {
                     if (event.target === canvas) {
-                        let vertex = changeShapeDown(event, obj);
+                        let vertex = changeShapeDown(event);
                         canvas.onmousemove = function (event) {
                             let coor = getMouseCoord(event);
                             let x = coor[0],
@@ -1055,9 +1055,8 @@ function drawShapeMove(x, y, obj) {
     }
 }
 
-function changeShapeDown(event, obj) {
-    let x,y;
-    console.log(event);
+function changeShapeDown(event) {
+    let x, y;
     if (event.which === 1) {
         x = event.clientX;
         y = event.clientY;
@@ -1065,7 +1064,7 @@ function changeShapeDown(event, obj) {
         x = event.touches[0].clientX;
         y = event.touches[0].clientY;
     }
-    let rect = canvas.getBoundingClientRect(); 
+    let rect = canvas.getBoundingClientRect();
     x = x - rect.left;
     y = rect.bottom - y;
     let vertex = checkVertex(x, y, u_PickedVertex);
@@ -1221,22 +1220,31 @@ function checkSymmetry(vertices) {
 function getInnerVertices(vertices, width) {
     let result = [];
     let innerVertices = [];
+    let s = getArea(vertices);
+    let round;
+    if (s > 0) {
+        round = 'left';
+    } else {
+        round = 'right';
+    }
     for (let i = 2; i < vertices.length - 2; i += 2) {
-        result = getIntro(vertices[i - 2], vertices[i - 1], vertices[i], vertices[i + 1], vertices[i + 2], vertices[i + 3], width);
+        result = getIntro(vertices[i - 2], vertices[i - 1], vertices[i], vertices[i + 1], vertices[i + 2], vertices[i + 3], width, round);
         innerVertices.push(result[0], result[1]);
     }
     let len = vertices.length;
-    result = getIntro(vertices[len - 4], vertices[len - 3], vertices[0], vertices[1], vertices[2], vertices[3], width);
+    result = getIntro(vertices[len - 4], vertices[len - 3], vertices[0], vertices[1], vertices[2], vertices[3], width, round);
     innerVertices.unshift(result[0], result[1]);
     innerVertices.push(result[0], result[1]);
+
     return innerVertices;
 }
 
-function getIntro(x1, y1, x2, y2, x3, y3, width) {
+function getIntro(x1, y1, x2, y2, x3, y3, width, round) { //round - обход, left - против часовой, right - по часовой
     let a = [],
         b = [],
         c = [],
         d = [];
+    let k = (round === 'left') ? -1 : 1;
     a.push(x1 - x2, y1 - y2);
     let absA = absVector(a);
     a[0] = a[0] / absA;
@@ -1245,7 +1253,7 @@ function getIntro(x1, y1, x2, y2, x3, y3, width) {
     let absB = absVector(b);
     b[0] = b[0] / absB;
     b[1] = b[1] / absB;
-    c.push(a[0] + b[0], a[1] + b[1]);
+    c.push(k * (a[0] + b[0]), k * (a[1] + b[1]));
     if ((-a[0] * b[1] - b[0] * (-a[1])) > 0) {
         c[0] = -c[0];
         c[1] = -c[1];
@@ -1385,7 +1393,7 @@ function rotateDown(ev, dragging) {
 }
 
 function initEventHandlers(canvas, currentAngle) {
-    if (!editorMode && viewMode==='3d') {
+    if (!editorMode && viewMode === '3d') {
         let dragging = false;
         let lastX, lastY;
         canvas.onmousedown = function (ev) {
