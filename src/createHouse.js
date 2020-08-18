@@ -874,6 +874,7 @@ function drawButtons() {
                 draw();
 
                 nextBtn.disabled = false; //снимаем блокировку перехода на другую стадию при редактировании
+                interactiveBtn[0].disabled = false; //блокируем переход в 2д вид при редактировании
                 interactiveBtn[1].disabled = false; //снимаем блокировку перехода в 3д вид при редактировании
             }
             drawButtons();
@@ -901,6 +902,7 @@ function drawButtons() {
                 draw();
 
                 nextBtn.disabled = false; //снимаем блокировку перехода на другую стадию при редактировании
+                interactiveBtn[0].disabled = false; //блокируем переход в 2д вид при редактировании
                 interactiveBtn[1].disabled = false; //снимаем блокировку перехода в 3д вид при редактировании
             }
             drawButtons();
@@ -925,6 +927,7 @@ function drawEditor(obj, btn) {
 
     if (editorMode) {
         nextBtn.disabled = true; //блокируем переход на другую стадию при редактировании
+        interactiveBtn[0].disabled = true; //блокируем переход в 2д вид при редактировании
         interactiveBtn[1].disabled = true; //блокируем переход в 3д вид при редактировании
 
         if (btn.innerHTML === 'Построить') {
