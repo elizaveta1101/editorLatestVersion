@@ -786,17 +786,6 @@ function createModel() {
             outerWalls.innerVertices = getInnerVertices(outerWalls.vertices, wallWidth);
         }
     }
-
-    //этажи
-    // let floorMenu = document.querySelector(".interview div #floors");
-    // if (floorMenu) {
-    //     scene.house.floors = Number(floorNumbers.options.selectedIndex);
-    //     // floorMenu.onchange = function () {
-    //     //     createModel();
-    //     // }
-    // } else {
-    //     scene.house.floors = 1;
-    // }
     draw();
 }
 
@@ -846,6 +835,10 @@ function set3D() {
 function drawButtons() {
     let basement = scene.house.basement;
     let shapeBtn = document.querySelectorAll('.interview .currentStage button');
+    
+    const nextBtn = document.querySelector('.interview .nextStage');
+    const interactiveBtn = document.querySelectorAll('.editor__buttons button');
+
     if (shapeBtn) {
         let createBtn = shapeBtn[0];
         let editBtn = shapeBtn[1];
@@ -879,6 +872,9 @@ function drawButtons() {
                 drawEditor(basement, createBtn);
                 gl.uniform1i(u_PickedVertex, -1);
                 draw();
+
+                nextBtn.disabled = false; //снимаем блокировку перехода на другую стадию при редактировании
+                interactiveBtn[1].disabled = false; //снимаем блокировку перехода в 3д вид при редактировании
             }
             drawButtons();
         }
@@ -893,6 +889,7 @@ function drawButtons() {
                 drawEditor(basement, editBtn);
                 draw();
                 editBtn.innerHTML = 'Закончить';
+                
             } else {
                 editBtn.innerHTML = 'Редактировать';
                 shapeBtn.forEach(btn => {
@@ -902,6 +899,9 @@ function drawButtons() {
                 });
                 drawEditor(basement, editBtn);
                 draw();
+
+                nextBtn.disabled = false; //снимаем блокировку перехода на другую стадию при редактировании
+                interactiveBtn[1].disabled = false; //снимаем блокировку перехода в 3д вид при редактировании
             }
             drawButtons();
         }
@@ -920,7 +920,13 @@ function drawButtons() {
 function drawEditor(obj, btn) {
     editorMode = (!editorMode);
     let windowWidth = document.documentElement.clientWidth;
+    const nextBtn = document.querySelector('.interview .nextStage');
+    const interactiveBtn = document.querySelectorAll('.editor__buttons button');
+
     if (editorMode) {
+        nextBtn.disabled = true; //блокируем переход на другую стадию при редактировании
+        interactiveBtn[1].disabled = true; //блокируем переход в 3д вид при редактировании
+
         if (btn.innerHTML === 'Построить') {
             if (windowWidth < 1024) {
                 canvas.ontouchstart = function (event) {
@@ -984,6 +990,10 @@ function drawEditor(obj, btn) {
             }
         }
     } else {
+        // if (btn.innerHTML !== 'Закончить') {
+        //     nextBtn.disabled = false;
+        // }
+
         canvas.onmousedown = function () {
             return false;
         }
