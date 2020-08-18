@@ -932,7 +932,9 @@ function drawEditor(obj, btn) {
     if (editorMode) {
         if (btn.innerHTML === 'Построить') {
             canvas.onmousedown = function (event) {
-                drawShapeDown(event, obj);
+                let coor = getMouseCoord(event);
+                let x = coor[0], y= coor[1];
+                drawShapeDown(x, y, obj);
             }
         } else
         if (btn.innerHTML === 'Редактировать') {
@@ -957,24 +959,12 @@ function drawEditor(obj, btn) {
 
 let drawClick = 0; //отслеживание клика при рисовании
 
-function drawShapeDown(event, obj) {
+function drawShapeDown(x,y, obj) {
     if (event.which == 1) {
-        let x = event.clientX;
-        let y = event.clientY;
-
-        let middle_X = gl.canvas.width / 2;
-        let middle_Y = gl.canvas.height / 2;
-
-        let rect = canvas.getBoundingClientRect();
-
-        x = ((x - rect.left) - middle_X) / middle_X;
-        y = (middle_Y - (y - rect.top)) / middle_Y;
-
-        xc = x;
-        yc = y;
-
         canvas.onmousemove = function (event) {
-            drawShapeMove(event, obj);
+            let coor = getMouseCoord(event);
+            let x = coor[0], y= coor[1];
+            drawShapeMove(x,y, obj);
         }
 
         obj.vertices.push(x, y);
@@ -996,20 +986,8 @@ function drawShapeDown(event, obj) {
     }
 }
 
-function drawShapeMove(event, obj) {
+function drawShapeMove(x,y, obj) {
     if (drawClick > 0) {
-
-        let x = event.clientX;
-        let y = event.clientY;
-
-        let middle_X = gl.canvas.width / 2;
-        let middle_Y = gl.canvas.height / 2;
-
-        let rect = canvas.getBoundingClientRect();
-
-        x = ((x - rect.left) - middle_X) / middle_X;
-        y = (middle_Y - (y - rect.top)) / middle_Y;
-
         let len = obj.vertices.length;
 
         if (len / 2 % (drawClick + 1) === 0) {
@@ -1034,7 +1012,9 @@ function changeShapeDown(event, obj) {
             draw();
             drawClick++;
             canvas.onmousemove = function (event) {
-                changeShapeMove(event, obj, vertex);
+                let coor = getMouseCoord(event);
+                let x = coor[0], y= coor[1];
+                changeShapeMove(x,y, obj, vertex);
             }
             canvas.onmouseup = function () {
                 drawClick = 0;
@@ -1047,21 +1027,9 @@ function changeShapeDown(event, obj) {
     }
 }
 
-function changeShapeMove(event, obj, num) {
+function changeShapeMove(x,y, obj, num) {
     if (drawClick > 0) {
-        // let num = checkVertex(x, y, u_PickedVertex); 
         if (num < obj.vertices.length / 2) {
-            let x = event.clientX;
-            let y = event.clientY;
-
-            let middle_X = gl.canvas.width / 2;
-            let middle_Y = gl.canvas.height / 2;
-
-            let rect = canvas.getBoundingClientRect();
-
-            x = ((x - rect.left) - middle_X) / middle_X;
-            y = (middle_Y - (y - rect.top)) / middle_Y;
-
             obj.vertices[(num - 1) * 2] = x;
             obj.vertices[(num - 1) * 2 + 1] = y;
             if (num === 1) {
@@ -1247,6 +1215,21 @@ function getIntro(x1, y1, x2, y2, x3, y3, width) {
 
 function absVector(a) {
     return Math.sqrt(a[0] * a[0] + a[1] * a[1]);
+}
+
+function getMouseCoord(event) {
+    let x = event.clientX;
+    let y = event.clientY;
+
+    let middle_X = gl.canvas.width / 2;
+    let middle_Y = gl.canvas.height / 2;
+
+    let rect = canvas.getBoundingClientRect();
+
+    x = ((x - rect.left) - middle_X) / middle_X;
+    y = (middle_Y - (y - rect.top)) / middle_Y;
+
+    return [x,y];
 }
 /*---------------------------КОНЕЦ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-----------------------------------------*/
 
