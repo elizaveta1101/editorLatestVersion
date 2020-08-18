@@ -194,11 +194,11 @@ scene.house = {};
 /*--------------------------------------------------------------------*/
 window.onload = function () {
     let windowWidth = document.documentElement.clientWidth;
-    if (windowWidth<500) {
+    if (windowWidth < 500) {
         // alert(windowWidth/100);
-        canvas.width = Math.floor(windowWidth/100)*100;
-        canvas.height = Math.floor(windowWidth/100)*100;
-    } else if (windowWidth>1200) {
+        canvas.width = Math.floor(windowWidth / 100) * 100;
+        canvas.height = Math.floor(windowWidth / 100) * 100;
+    } else if (windowWidth > 1200) {
         canvas.width = 600;
         canvas.height = 600;
     } else {
@@ -622,7 +622,7 @@ function setStage() {
     let shapeMenu = document.querySelector('.interview .currentStage #shape');
     // let initialShapeMenu = document.querySelector('.stageDescriptions .stageBasement #shape');
     // let initialShapeMenuOptions = document.querySelectorAll('.stageDescriptions .stageBasement #shape option');
-    
+
     const numberOfShapes = exampleShapes.length;
     let shapeBtn = document.querySelectorAll('.interview .currentStage button');
 
@@ -932,32 +932,44 @@ function drawEditor(obj, btn) {
     let windowWidth = document.documentElement.clientWidth;
     if (editorMode) {
         if (btn.innerHTML === 'Построить') {
-            // if (windowWidth<1024) {
-            //     canvas.ontouchstart = function(event) {
+            if (windowWidth < 1024) {
+                canvas.ontouchstart = function (event) {
+                    if (event.target === canvas) {
+                        let coor = getTouchCoord(event);
+                        let x = coor[0],
+                            y = coor[1];
+                        console.log('here');
+                        console.log(event);
+                        drawShapeDown(event, x, y, obj);
+                    }
+                }
+            } else {
+                canvas.onmousedown = function (event) {
+                    let coor = getMouseCoord(event);
+                    let x = coor[0],
+                        y = coor[1];
+                        console.log(event);
+                    drawShapeDown(event, x, y, obj);
+                }
+                canvas.onmousemove = function (event) {
+                    let coor = getMouseCoord(event);
+                    let x = coor[0],
+                        y = coor[1];
+                    drawShapeMove(x, y, obj);
+                }
+            }
 
-            //     }
-            // }
-            canvas.onmousedown = function (event) {
-                let coor = getMouseCoord(event);
-                let x = coor[0], y= coor[1];
-                drawShapeDown(x, y, obj);
-            }
-            canvas.onmousemove = function (event) {
-                let coor = getMouseCoord(event);
-                let x = coor[0], y= coor[1];
-                drawShapeMove(x,y, obj);
-            }
         } else
         if (btn.innerHTML === 'Редактировать') {
             canvas.onmousedown = function (event) {
                 let vertex = changeShapeDown(event, obj);
                 canvas.onmousemove = function (event) {
                     let coor = getMouseCoord(event);
-                    let x = coor[0], y= coor[1];
-                    changeShapeMove(x,y, obj, vertex);
+                    let x = coor[0],
+                        y = coor[1];
+                    changeShapeMove(x, y, obj, vertex);
                 }
             }
-            
             canvas.onmouseup = function () {
                 drawClick = 0;
             }
@@ -979,19 +991,13 @@ function drawEditor(obj, btn) {
 
 let drawClick = 0; //отслеживание клика при рисовании
 
-function drawShapeDown(x,y, obj) {
-    if (event.which == 1) {
-        // canvas.onmousemove = function (event) {
-        //     let coor = getMouseCoord(event);
-        //     let x = coor[0], y= coor[1];
-        //     drawShapeMove(x,y, obj);
-        // }
-
+function drawShapeDown(event, x, y, obj) {
+    if (event.which === 1 || event.type === 'touchstart') {
         obj.vertices.push(x, y);
         draw();
         drawClick++;
 
-    } else if (event.which == 3) {
+    } else if (event.which === 3 || event.type === 'touchstart' && event.touches.length===2) {
         if (drawClick > 0) {
             obj.vertices.pop();
             obj.vertices.pop();
@@ -1006,7 +1012,7 @@ function drawShapeDown(x,y, obj) {
     }
 }
 
-function drawShapeMove(x,y, obj) {
+function drawShapeMove(x, y, obj) {
     if (drawClick > 0) {
         let len = obj.vertices.length;
 
@@ -1032,14 +1038,6 @@ function changeShapeDown(event, obj) {
             draw();
             drawClick++;
             return vertex;
-            // canvas.onmousemove = function (event) {
-            //     let coor = getMouseCoord(event);
-            //     let x = coor[0], y= coor[1];
-            //     changeShapeMove(x,y, obj, vertex);
-            // }
-            // canvas.onmouseup = function () {
-            //     drawClick = 0;
-            // }
         }
     } else if (event.which == 3) {
         gl.uniform1i(u_PickedVertex, -1);
@@ -1049,7 +1047,7 @@ function changeShapeDown(event, obj) {
     }
 }
 
-function changeShapeMove(x,y, obj, num) {
+function changeShapeMove(x, y, obj, num) {
     if (drawClick > 0) {
         if (num < obj.vertices.length / 2) {
             obj.vertices[(num - 1) * 2] = x;
@@ -1251,7 +1249,22 @@ function getMouseCoord(event) {
     x = ((x - rect.left) - middle_X) / middle_X;
     y = (middle_Y - (y - rect.top)) / middle_Y;
 
-    return [x,y];
+    return [x, y];
+}
+
+function getTouchCoord(event) {
+    let x = event.touches[0].clientX;
+    let y = event.touches[0].clientY;
+
+    let middle_X = gl.canvas.width / 2;
+    let middle_Y = gl.canvas.height / 2;
+
+    let rect = canvas.getBoundingClientRect();
+
+    x = ((x - rect.left) - middle_X) / middle_X;
+    y = (middle_Y - (y - rect.top)) / middle_Y;
+
+    return [x, y];
 }
 /*---------------------------КОНЕЦ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-----------------------------------------*/
 
