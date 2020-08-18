@@ -959,11 +959,11 @@ function drawEditor(obj, btn) {
         } else
         if (btn.innerHTML === 'Редактировать') {
             if (windowWidth < 1024) {
+                let body = document.querySelector('body');
                 canvas.ontouchstart = function (event) {
                     if (event.target === canvas) {
-                        console.log('here');
-                        console.log(event);
                         let vertex = changeShapeDown(event, obj);
+                        body.classList.add('stop-scrolling');
                         canvas.ontouchmove = function(event) {
                             let coor = getTouchCoord(event);
                             let x = coor[0],
@@ -974,6 +974,7 @@ function drawEditor(obj, btn) {
                 }
                 canvas.ontouchend = function () {
                     drawClick=0;
+                    body.classList.remove('stop-scrolling');
                 }
             } else {
                 canvas.onmousedown = function (event) {
@@ -1051,7 +1052,6 @@ function changeShapeDown(event, obj) {
     } else if (event.touches && event.touches.length === 1) {
         x = event.touches[0].clientX;
         y = event.touches[0].clientY;
-        console.log('here');
     }
     let rect = canvas.getBoundingClientRect(); 
     x = x - rect.left;
@@ -1061,7 +1061,6 @@ function changeShapeDown(event, obj) {
     draw();
     drawClick++;
     return vertex;
-    
 }
 
 function changeShapeMove(x, y, obj, num) {

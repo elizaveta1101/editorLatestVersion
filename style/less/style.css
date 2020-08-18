@@ -81,3 +81,7 @@ button {
     grid-row: content;
   }
 }
+.stop-scrolling {
+  height: 100%;
+  overflow: hidden;
+}
