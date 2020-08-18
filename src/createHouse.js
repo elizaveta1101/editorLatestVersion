@@ -617,39 +617,15 @@ function setStage() {
     const nextBtn = document.querySelector('.interview .nextStage');
     previousBtn.disabled = true;
 
-    let shapeMenu = document.querySelector('.interview .currentStage #shape');
-    // let initialShapeMenu = document.querySelector('.stageDescriptions .stageBasement #shape');
-    // let initialShapeMenuOptions = document.querySelectorAll('.stageDescriptions .stageBasement #shape option');
-
+    let shapeMenu;
+    // let shapeMenu = document.querySelector('.interview .currentStage #shape');
     const numberOfShapes = exampleShapes.length;
-    let shapeBtn = document.querySelectorAll('.interview .currentStage button');
-
-    if (shapeMenu) {
-        shapeMenu.onchange = function () {
-            let shapeNumber = shapeMenu.selectedOptions[0].value;
-            // console.log(shapeNumber);
-            // // initialShapeMenu.innerHTML = '';
-            // initialShapeMenuOptions.forEach(opt => {
-            //     if (opt.value===shapeNumber) {
-            //         opt.selected = true;
-            //     } else {
-            //         opt.selected = false;
-            //     } 
-            //     console.log(opt.value, opt.selected);
-            //     // initialShapeMenu.appendChild(opt);
-            // });
-            if (shapeNumber < numberOfShapes) {
-                shapeBtn.forEach(btn => {
-                    btn.style.display = 'none';
-                });
-            } else {
-                shapeBtn.forEach(btn => {
-                    btn.style.display = 'block';
-                });
-            }
-        }
-    }
-
+    let shapeBtn; 
+    // let shapeBtn = document.querySelectorAll('.interview .currentStage button');
+    let selectedShape = 0;
+   
+    let floorMenu; 
+    let selectedFloor = 0;
     checkStage = function () {
         switch (stageNumber) {
             case 0: //построение фундамента
@@ -661,7 +637,22 @@ function setStage() {
                         clearObj(scene.house[obj]);
                     }
                 }
-                if (shapeMenu && (shapeMenu.selectedOptions[0].value === numberOfShapes)) {
+                shapeMenu = document.querySelector('.interview .currentStage #shape');
+                shapeMenu.options.selectedIndex = selectedShape;
+                shapeBtn = document.querySelectorAll('.interview .currentStage button');
+                shapeMenu.onchange = function () {
+                    selectedShape = shapeMenu.options.selectedIndex;
+                    if (selectedShape < numberOfShapes) {
+                        shapeBtn.forEach(btn => {
+                            btn.style.display = 'none';
+                        });
+                    } else {
+                        shapeBtn.forEach(btn => {
+                            btn.style.display = 'block';
+                        });
+                    }
+                }
+                if (shapeMenu.options && (selectedShape === numberOfShapes)) {
                     shapeBtn.forEach(btn => {
                         btn.style.display = 'block';
                     });
@@ -671,7 +662,18 @@ function setStage() {
                 if (!scene.house.outerWalls) {
                     scene.house.outerWalls = new sceneObject('outerWalls');
                 }
-
+                scene.house.floors = 1;
+                break;
+            case 2: //этажи
+                floorMenu = document.querySelector(".interview div #floors");
+                floorMenu.options.selectedIndex = selectedFloor;
+                scene.house.floors = selectedFloor + 1;
+                draw();
+                floorMenu.onchange = function() {
+                    selectedFloor = floorMenu.options.selectedIndex;
+                    scene.house.floors = selectedFloor + 1;
+                    draw();
+                }
                 break;
         }
         createModel();
@@ -687,11 +689,10 @@ function setStage() {
         }
         if (stageNumber === 0) {
             this.disabled = true;
-            // shapeMenu.innerHTML = '';
-            // initialShapeMenuOptions.forEach(opt => {
-            //     console.log(opt.value, opt.selected);
-            //     shapeMenu.appendChild(opt);
-            // });
+            // shapeMenu = document.querySelector('.interview .currentStage #shape');
+            // shapeMenu.options.selectedIndex = selectedShape;
+            // shapeBtn = document.querySelectorAll('.interview .currentStage button');
+            drawButtons();
         }
         checkStage();
     }
@@ -720,7 +721,7 @@ function createModel() {
         const numberOfShapes = exampleShapes.length;
 
         if (shapeMenu) {
-            let shapeNumber = shapeMenu.selectedOptions[0].value;
+            let shapeNumber = shapeMenu.options.selectedIndex;
 
             if (shapeNumber < numberOfShapes) {
                 basement.vertices = [...exampleShapes[shapeNumber]]; //берется заготовленный вариант  
@@ -787,24 +788,15 @@ function createModel() {
     }
 
     //этажи
-    let floorNumbers = document.querySelector(".interview div #floors");
-    let floorMenu = document.querySelector(".stageDescriptions .stageFloors #floors");
-    if (floorNumbers) {
-        scene.house.floors = Number(floorNumbers.selectedOptions[0].value);
-        // floorMenu.options.forEach((opt) => {
-        //     if (floorNumbers.selectedOptions[0]===opt) {
-        //         opt.setAttribute('selected', true);
-        //     } else {
-        //         opt.removeAttribute('selected');
-        //     }
-        // });
-        floorMenu.selectedOptions = floorNumbers.selectedOptions;
-        floorNumbers.onchange = function () {
-            createModel();
-        }
-    } else {
-        scene.house.floors = 1;
-    }
+    // let floorMenu = document.querySelector(".interview div #floors");
+    // if (floorMenu) {
+    //     scene.house.floors = Number(floorNumbers.options.selectedIndex);
+    //     // floorMenu.onchange = function () {
+    //     //     createModel();
+    //     // }
+    // } else {
+    //     scene.house.floors = 1;
+    // }
     draw();
 }
 
@@ -967,7 +959,6 @@ function drawEditor(obj, btn) {
                             let x = coor[0],
                                 y = coor[1];
                             changeShapeMove(x, y, obj, vertex);
-                            
                         }
                     }
                 }
@@ -1000,6 +991,15 @@ function drawEditor(obj, btn) {
             return false;
         }
         canvas.onmouseup = function () {
+            return false;
+        }
+        canvas.ontouchstart = function () {
+            return false;
+        }
+        canvas.ontouchmove = function () {
+            return false;
+        }
+        canvas.ontouchend = function () {
             return false;
         }
         gl.uniform1i(u_PickedVertex, -1);
