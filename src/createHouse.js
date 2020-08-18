@@ -205,8 +205,6 @@ window.onload = function () {
         canvas.width = 450;
         canvas.height = 450;
     }
-    // canvas.width = 600;
-    // canvas.height = 600;
     document.querySelector('.editor__interact').appendChild(canvas);
     canvas.oncontextmenu = function () {
         return false;
@@ -367,7 +365,7 @@ function draw() {
             setMatrixUniforms();
             if (viewMode === '2d') {
                 drawScheme(scene.house[obj].vertices, 0, [0, 0, 0], false);
-                if (scene.house[obj].height > 0) {
+                if (scene.house[obj].height > 0 && !editorMode) {
                     drawScheme(scene.house[obj].innerVertices, 0, [0, 0, 0], false);
                 }
                 if (editorMode) {
