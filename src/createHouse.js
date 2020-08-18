@@ -933,12 +933,10 @@ function drawEditor(obj, btn) {
         if (btn.innerHTML === 'Построить') {
             if (windowWidth < 1024) {
                 canvas.ontouchstart = function (event) {
-                    if (event.target === canvas) {
-                        let coor = getTouchCoord(event);
-                        let x = coor[0],
-                            y = coor[1];
-                        drawShapeDown(event, x, y, obj);
-                    }
+                    let coor = getTouchCoord(event);
+                    let x = coor[0],
+                        y = coor[1];
+                    drawShapeDown(event, x, y, obj);
                 }
             } else {
                 canvas.onmousedown = function (event) {
@@ -959,16 +957,15 @@ function drawEditor(obj, btn) {
             if (windowWidth < 1024) {
                 let body = document.querySelector('body');
                 canvas.ontouchstart = function (event) {
-                    if (event.target === canvas) {
-                        let vertex = changeShapeDown(event);
-                        body.classList.add('stop-scrolling');
-                        canvas.ontouchmove = function (event) {
-                            let coor = getTouchCoord(event);
-                            let x = coor[0],
-                                y = coor[1];
-                            changeShapeMove(x, y, obj, vertex);
-                        }
+                    let vertex = changeShapeDown(event);
+                    body.classList.add('stop-scrolling');
+                    canvas.ontouchmove = function (event) {
+                        let coor = getTouchCoord(event);
+                        let x = coor[0],
+                            y = coor[1];
+                        changeShapeMove(x, y, obj, vertex);
                     }
+                    return false;
                 }
                 canvas.ontouchend = function () {
                     drawClick = 0;
@@ -976,14 +973,12 @@ function drawEditor(obj, btn) {
                 }
             } else {
                 canvas.onmousedown = function (event) {
-                    if (event.target === canvas) {
-                        let vertex = changeShapeDown(event);
-                        canvas.onmousemove = function (event) {
-                            let coor = getMouseCoord(event);
-                            let x = coor[0],
-                                y = coor[1];
-                            changeShapeMove(x, y, obj, vertex);
-                        }
+                    let vertex = changeShapeDown(event);
+                    canvas.onmousemove = function (event) {
+                        let coor = getMouseCoord(event);
+                        let x = coor[0],
+                            y = coor[1];
+                        changeShapeMove(x, y, obj, vertex);
                     }
                 }
                 canvas.onmouseup = function () {
