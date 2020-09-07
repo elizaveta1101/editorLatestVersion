@@ -74,21 +74,22 @@ const gl = canvas.getContext("webgl", {
 
 let shaderProgram; //программа
 
-let a_normal;
+// let a_normal;
 let u_MvpMatrix;
 let u_ModelMatrix;
 let u_NormalMatrix;
-let u_LightColor;
-let u_LightDirection;
-let u_AmbientLight;
+// let u_LightColor;
+// let u_LightDirection;
+// let u_AmbientLight;
 let u_PickedVertex;
 let u_PointsMode;
 
 let viewMode; //режим показа - 2D/3D
 let editorMode; //режим работы редактора - если true, то можно выполнять построения, если false - то только просмотр
-let modelingStage; //стадия моделирования
+let editStage;
+// let modelingStage; //стадия моделирования
 let currentAngle = 0;
-
+let gridMode = false; //режим сетки (+ строим сетку, - не строим)
 const viewButtons = document.querySelectorAll(".editor .editor__buttons button"); //кнопки в окне
 
 
@@ -138,6 +139,13 @@ let exampleShapes = [
         -0.5, 0.5
     ],
 
+    // [0.0, 0.0,
+    //     0.0, 0.1,
+    //     0.1, 0.1,
+    //     0.1, 0.0,
+    //     0.0, 0.0
+    // ],
+
     [-0.2, 0.8,
         0.2, 0.8,
         0.1, 0.2,
@@ -157,7 +165,6 @@ let exampleShapes = [
         -0.2, 0.8
     ]
 ];
-
 
 //----------иерархия объектов----------
 //конструктор объектов
@@ -225,9 +232,10 @@ window.onload = function () {
     gl.polygonOffset(1.0, 1.0);
 
     editorMode = false; //активируем режим простоя для редактора (нельзя рисовать)
+    editStage = 'basement';
     set2D();
     setStage();
-    drawButtons();
+    // drawButtons();
 }
 
 /*-------------------------РАБОТА С ШЕЙДЕРАМИ-------------------------------------------*/
@@ -272,12 +280,13 @@ function initVariables() {
     u_ModelMatrix = gl.getUniformLocation(shaderProgram, 'u_ModelMatrix');
     u_MvpMatrix = gl.getUniformLocation(shaderProgram, 'u_MvpMatrix');
     u_NormalMatrix = gl.getUniformLocation(shaderProgram, 'u_NormalMatrix');
-    u_LightColor = gl.getUniformLocation(shaderProgram, 'u_LightColor');
-    u_LightPosition = gl.getUniformLocation(shaderProgram, 'u_LightPosition');
-    u_AmbientLight = gl.getUniformLocation(shaderProgram, 'u_AmbientLight');
+
     u_PickedVertex = gl.getUniformLocation(shaderProgram, 'u_PickedVertex');
     u_PointsMode = gl.getUniformLocation(shaderProgram, 'u_PointsMode');
 
+    let u_LightColor = gl.getUniformLocation(shaderProgram, 'u_LightColor'),
+        u_LightPosition = gl.getUniformLocation(shaderProgram, 'u_LightPosition'),
+        u_AmbientLight = gl.getUniformLocation(shaderProgram, 'u_AmbientLight');
 
     if (!u_ModelMatrix || !u_MvpMatrix || !u_NormalMatrix || !u_LightColor || !u_LightPosition || !u_AmbientLight) {
         console.log('Failed to get the storage location');
@@ -309,6 +318,13 @@ function initArrayBuffer(gl, attribute, data, type, num) {
     return true;
 }
 
+function initAllBuffer(positions, colors, normals, numbers) {
+    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(positions), gl.FLOAT, 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), gl.FLOAT, 3)) return -1;
+    if (!initArrayBuffer(gl, 'a_Vertex', new Uint8Array(numbers), gl.UNSIGNED_BYTE, 1)) return -1;
+}
+
 function setMatrixUniforms() {
     mvpMatrix.set(perspectiveMatrix);
     mvpMatrix.multiply(viewMatrix);
@@ -324,7 +340,6 @@ function setMatrixUniforms() {
 function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
-    gl.uniform1i(u_PointsMode, 0);
     //оси координат
     let axisArray = [
         0.0, 0.0, 0.0, 1.0, 0.0, 0.0, //x (red)
@@ -334,49 +349,66 @@ function draw() {
 
     let count = axisArray.length / 3;
     let colors = [];
+    let normals = [];
     for (let i = 0; i < count; i++) {
         colors.push(0.0, 0.0, 0.0);
+        normals.push(0.0, 0.0, 0.0);
     }
     let vertexNumber = [];
     for (let i = 0; i < axisArray.length / 3; i++) {
         vertexNumber.push(i + 1);
     }
-    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(axisArray), gl.FLOAT, 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(colors), gl.FLOAT, 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Vertex', new Uint8Array(vertexNumber), gl.UNSIGNED_BYTE, 1)) return -1;
+    initAllBuffer(axisArray, colors, normals, vertexNumber);
     gl.drawArrays(gl.LINES, 0, count);
 
     modelMatrix.pushMatrix();
 
     for (obj in scene.house) {
-        if (obj !== 'floors') {
+        if (scene.house[obj].translation) {
             let dx = scene.house[obj].translation[0];
             let dy = scene.house[obj].translation[1];
             let dz = scene.house[obj].translation[2];
             modelMatrix.translate(dx, dy, dz);
             setMatrixUniforms();
-            if (viewMode === '2d') {
+        }
+        if (obj === 'roomWalls') {
+            drawRoomWalls(scene.house[obj]);
+        } else
+        if (viewMode === '2d') {
+            if (scene.house[obj].vertices) {
                 drawScheme(scene.house[obj].vertices, 0, [0, 0, 0], false);
-                if (scene.house[obj].height > 0 && !editorMode) {
-                    drawScheme(scene.house[obj].innerVertices, 0, [0, 0, 0], false);
-                }
-                if (editorMode) {
-                    drawPoints(scene.house[obj].vertices, [0, 0, 0]);
-                }
-            } else if (obj === 'outerWalls') {
-                for (let i = 0; i < scene.house.floors - 1; i++) {
-                    drawWalls(scene.house[obj]);
-                    modelMatrix.translate(0, 0, scene.house[obj].height);
-                    setMatrixUniforms();
-                    drawObject(scene.house[obj].vertices, scene.house.basement.height / 2, scene.house.basement.color, 'fan', false);
-                    modelMatrix.translate(0, 0, scene.house.basement.height / 2);
-                    setMatrixUniforms();
-                }
-                drawWalls(scene.house[obj]);
-            } else {
-                drawObject(scene.house[obj].vertices, scene.house[obj].height, scene.house[obj].color, 'fan', false);
+            } //!!!!!!!!!!!!!!условие повторяется в drawScheme
+            if (scene.house[obj].innerVertices && scene.house[obj].innerVertices.length > 0) {
+                drawScheme(scene.house[obj].innerVertices, 0, [0, 0, 0], false);
             }
+            if (editorMode && obj === editStage) {
+                drawPoints(scene.house[obj].vertices);
+                // if (obj === editStage) {
+                //     // if (obj === 'roomWalls') {
+                //     //     for (let i = 1; i <= scene.house.floors; i++) {
+                //     //         drawPoints(scene.house.roomWalls[i]);
+                //     //     }
+                //     // } else {
+                //     //     drawPoints(scene.house[obj].vertices);
+                //     // }
+                // }
+            }
+            if (obj === 'hatching' && gridMode) {
+                drawGrid(scene.house[obj].vertical);
+                drawGrid(scene.house[obj].horizontal);
+            }
+        } else if (obj === 'outerWalls') {
+            for (let i = 0; i < scene.house.floors - 1; i++) {
+                drawOuterWalls(scene.house[obj]);
+                modelMatrix.translate(0, 0, scene.house[obj].height);
+                setMatrixUniforms();
+                drawObject(scene.house[obj].vertices, scene.house.basement.height / 2, scene.house.basement.color, 'fan');
+                modelMatrix.translate(0, 0, scene.house.basement.height / 2);
+                setMatrixUniforms();
+            }
+            drawOuterWalls(scene.house[obj]);
+        } else {
+            drawObject(scene.house[obj].vertices, scene.house[obj].height, scene.house[obj].color, 'fan');
         }
     }
 
@@ -384,8 +416,7 @@ function draw() {
     setMatrixUniforms();
 }
 
-function drawObject(vertices, height, texture, fill, flip) {
-    gl.uniform1i(u_PointsMode, 0);
+function drawObject(vertices, height, texture, fill) {
     if (vertices) {
         let colors = [];
         let normals = [];
@@ -423,12 +454,6 @@ function drawObject(vertices, height, texture, fill, flip) {
         //нормали в вершинах
         normals = getNormals(vertices, '3d');
 
-        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
-        if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
-        if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), gl.FLOAT, 3)) return -1;
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
         //    1------ 3
         //   /|      /|
         //  7-------5 |
@@ -438,25 +463,19 @@ function drawObject(vertices, height, texture, fill, flip) {
         //  6-------4
         // Coordinates
 
-        //индексы
-        if (flip) {
-            for (let i = 0; i < vertexArray.length / 3 - 3; i += 4) {
-                indices.push(i + 2, i + 1, i, i + 3, i + 2, i + 1);
-                //0, 1, 2, 1, 2, 3,
-                //4,5,6, 5,6,7, ...
-            }
-        } else {
-            for (let i = 0; i < vertexArray.length / 3 - 3; i += 4) {
-                indices.push(i, i + 1, i + 2, i + 1, i + 2, i + 3);
-                //0, 1, 2, 1, 2, 3,
-                //4,5,6, 5,6,7, ...
-            }
+        for (let i = 0; i < vertexArray.length / 3 - 3; i += 4) {
+            indices.push(i, i + 1, i + 2, i + 1, i + 2, i + 3);
+            //0, 1, 2, 1, 2, 3,
+            //4,5,6, 5,6,7, ...
         }
 
         for (let i = 0; i < indices.length; i++) {
             vertexNumber.push(i + 1);
         }
-        if (!initArrayBuffer(gl, 'a_Vertex', new Uint8Array(vertexNumber), gl.UNSIGNED_BYTE, 1)) return -1;
+
+        initAllBuffer(vertexArray, colors, normals, vertexNumber);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
         let indexBuffer = gl.createBuffer();
         if (!indexBuffer) {
@@ -479,7 +498,6 @@ function drawObject(vertices, height, texture, fill, flip) {
 }
 
 function drawScheme(vertices, height, texture, fill) {
-    gl.uniform1i(u_PointsMode, 0);
     if (vertices) {
         let colors = [];
         let normals = [];
@@ -493,46 +511,32 @@ function drawScheme(vertices, height, texture, fill) {
                 vertexArray.push(height);
             }
         }
-        //цвета вершин
-        for (let i = 0; i < vertexArray.length / 3; i++) {
-            colors.push(texture[0], texture[1], texture[2]);
-        }
-        //номера вершин
-        for (let i = 0; i < vertices.length / 2; i++) {
-            vertexNumber.push(i + 1);
-        }
 
         if (fill) {
             if (fill === 'fan') {
                 //добавление центра многоугольника для закрашивания веером
                 let center = getPolygonCenter(vertices);
                 vertexArray.unshift(center[0], center[1], height);
-                vertexNumber.push(vertexNumber.length);
             }
-
-            normals = [];
             for (let i = 0; i < vertexArray.length / 3; i++) {
                 normals.push(0, 0, 1);
-            }
-
-            colors = [];
-            for (let i = 0; i < vertexArray.length / 3; i++) {
                 colors.push(texture[0], texture[1], texture[2]);
+                vertexNumber.push(i + 1);
+            }
+        } else {
+            for (let i = 0; i < vertexArray.length / 3; i++) {
+                normals.push(0, 0, 0);
+                colors.push(texture[0], texture[1], texture[2]);
+                vertexNumber.push(i + 1);
             }
         }
 
-        if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
-        if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
-        if (fill) {
-            if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(normals), gl.FLOAT, 3)) return -1;
-        } else {
-            if (!initArrayBuffer(gl, 'a_Normal', new Float32Array(colors), gl.FLOAT, 3)) return -1;
-        }
-        if (!initArrayBuffer(gl, 'a_Vertex', new Uint8Array(vertexNumber), gl.UNSIGNED_BYTE, 1)) return -1;
+        initAllBuffer(vertexArray, colors, normals, vertexNumber);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
         //индексы
+        //!!!!!!!!!!!можно определять индексы в условии выше, вместе с цветом и тд
         for (let i = 0; i < vertexArray.length / 3; i++) {
             indices.push(i);
             //0, 1, 2, 3, 4, 5, 6...
@@ -561,34 +565,128 @@ function drawScheme(vertices, height, texture, fill) {
 
 function drawPoints(vertices) {
     gl.uniform1i(u_PointsMode, 1);
-    let vertexNumber = [];
-    for (let i = 0; i < vertices.length / 2; i++) {
-        vertexNumber.push(i + 1);
-    }
+    let colors = [];
+    let normals = [];
     let vertexArray = [];
+    let vertexNumber = [];
     for (let i = 0; i < vertices.length; i += 2) {
         vertexArray.push(vertices[i], vertices[i + 1], 0.5); //A, B, ...
-    }
-    colors = [];
-    for (let i = 0; i < vertices.length / 2; i++) {
+        vertexNumber.push(i / 2 + 1);
         colors.push(0.0, 0.0, 0.0);
+        normals.push(0, 0, 1);
     }
 
-    if (!initArrayBuffer(gl, 'a_Position', new Float32Array(vertexArray), gl.FLOAT, 3)) return -1;
-    if (!initArrayBuffer(gl, 'a_Color', new Float32Array(colors), gl.FLOAT, 3)) return -1;
+    initAllBuffer(vertexArray, colors, normals, vertexNumber);
 
     gl.drawArrays(gl.POINTS, 0, vertices.length / 2);
+    gl.uniform1i(u_PointsMode, 0);
 }
 
-function drawWalls(obj) {
+function drawGrid(vertices) {
+    let colors = [];
+    let normals = [];
+    let vertexArray = [];
+    let vertexNumber = [];
+    for (let i = 0; i < vertices.length; i += 2) {
+        vertexArray.push(vertices[i], vertices[i + 1], 0.0); //A, B, ...
+        colors.push(0.9, 0.9, 0.9);
+        vertexNumber.push(i / 2 + 1);
+        normals.push(0, 0, 1);
+    }
+
+    initAllBuffer(vertexArray, colors, normals, vertexNumber);
+
+    gl.drawArrays(gl.LINES, 0, vertices.length / 2);
+}
+
+function drawOuterWalls(obj) {
     if (obj.innerVertices.length > 0 && obj.height > 0) {
         //внешние
-        drawObject(obj.vertices, obj.height, obj.color, false, false);
+        drawObject(obj.vertices, obj.height, obj.color, false);
         //внутренние
-        drawObject(obj.innerVertices, obj.height, obj.color, false, false);
+        drawObject(obj.innerVertices, obj.height, obj.color, false);
         //верх
         drawScheme(obj.getUpVertices(), obj.height, obj.color, 'strip');
     }
+}
+
+function drawRoomWalls(obj) {
+
+    let floor = obj.selectedFloor;
+    let curveAmount = obj[floor].length;
+    let vertices = [],
+        widthVertices = [],
+        newCoor =[];
+    let x1,y1,x2,y2,x3,y4;
+    for (let i = 0; i < curveAmount; i++) {
+        //получим новые вершины
+
+        vertices = obj[floor][i];
+        widthVertices = [];
+        for (let j=0; j<vertices.length-3; j+=2) {
+            x1=vertices[j]; y1=vertices[j+1];
+            x2=vertices[j+2]; y2=vertices[j+3];
+
+            newCoor = setWidthLine(x1,y1,x2,y2,0.05);
+            newCoor.forEach(el => widthVertices.push(el));
+        }
+
+        if (viewMode === '2d') {
+            if (editorMode) {
+                drawScheme(vertices, 0, [0, 0, 0], false); //lineStrip
+                drawPoints(vertices); //
+            } else {
+                drawScheme(widthVertices, 0, [0,0,0], false); //linestrip с толщиной
+            }
+        } else {
+            drawObject(widthVertices, obj.height, obj.color, 'strip');
+        }
+    }
+
+    //проверка 2д/3д
+    //проверка режим редактора (строим/редактируем что-то?)
+}
+
+function setWidthLine(x1,y1,x2,y2, width) {
+    let vertices = [];
+    let bag = [];
+    let flag = false;
+    sinA = Math.abs(x2 - x1) / (Math.sqrt(Math.pow((x2 - x1), 2) + Math.pow((y2 - y1), 2)));
+    if ((y1 < y2 && x1 < x2) || (x1 > x2 && y1 > y2)) {
+        flag = true;
+    }
+    vertices = getNeighbours(x1, y1, sinA, width, flag);
+    bag=getNeighbours(x2, y2, sinA, width, flag);
+    vertices.push(bag[2], bag[3], bag[0], bag[1], vertices[0], vertices[1]);
+    return vertices;
+}
+
+function getNeighbours(x, y, sinA, width, flag) {
+    let cosA, xn, yn, vertices;
+    vertices = [];
+    cosA = Math.sqrt(1 - Math.pow(sinA, 2));
+    if (flag) {
+        xn = x - cosA * width / 2;
+        yn = y + sinA * width / 2;
+        vertices.push(xn, yn);
+
+        xn = x + cosA * width / 2;
+        yn = y - sinA * width / 2;
+        vertices.push(xn, yn);
+    } else {
+        xn = x + cosA * width / 2;
+        yn = y + sinA * width / 2;
+        vertices.push(xn, yn);
+
+        xn = x - cosA * width / 2;
+        yn = y - sinA * width / 2;
+        vertices.push(xn, yn);
+    }
+
+    console.log('getNeighbours');
+    console.log(vertices);
+
+    return vertices;
 }
 /*---------------------------КОНЕЦ РИСОВАНИЕ ФИГУР-----------------------------------------*/
 
@@ -643,6 +741,7 @@ function setStage() {
                         btn.style.display = 'block';
                     });
                 }
+
                 break;
             case 1: //возведение стен
                 if (!scene.house.outerWalls) {
@@ -659,6 +758,32 @@ function setStage() {
                     selectedFloor = floorMenu.options.selectedIndex;
                     scene.house.floors = selectedFloor + 1;
                     draw();
+                    if (scene.house.roomWalls) {
+                        for (let i = 1; i <= scene.house.floors; i++) {
+                            scene.house.roomWalls[i] = {};
+                        }
+                    }
+                }
+                break;
+            case 3: //межкомнатные стены
+                if (!scene.house.hatching) {
+                    scene.house.hatching = {};
+                }
+                scene.house.hatching.horizontal = getStripeCoor(scene.house.outerWalls.innerVertices, convertToCoor(1), 0);
+                scene.house.hatching.vertical = getStripeCoor(scene.house.outerWalls.innerVertices, convertToCoor(1), 90);
+                // scene.house.hatching.bound = getBoundStripeCoor(scene.house.outerWalls.innerVertices);
+                floorMenu = document.querySelector(".interview div #floorNumber");
+                floorMenu.innerHTML = '';
+                for (let i = 1; i <= scene.house.floors; i++) {
+                    let opt = document.createElement('option');
+                    opt.value = i;
+                    opt.innerHTML = i;
+                    floorMenu.appendChild(opt);
+                }
+
+                if (!scene.house.roomWalls) {
+                    scene.house.roomWalls = new sceneObject('roomWalls');
+                    delete scene.house.roomWalls.vertices;
                 }
                 break;
         }
@@ -666,6 +791,8 @@ function setStage() {
     }
 
     checkStage();
+
+    drawButtons();
 
     previousBtn.onclick = function () {
         if (stageNumber > 0) {
@@ -675,7 +802,15 @@ function setStage() {
         }
         if (stageNumber === 0) {
             this.disabled = true;
+            editStage = 'basement';
             drawButtons();
+        }
+        if (stageNumber === 3) {
+            gridMode = true;
+            editStage = 'roomWalls';
+            drawButtons();
+        } else {
+            gridMode = false;
         }
         checkStage();
     }
@@ -686,10 +821,18 @@ function setStage() {
             interviewDiv.innerHTML = stageInfo[stageNumber].innerHTML;
             previousBtn.disabled = false;
         }
+        checkStage();
         if (stageNumber === stageInfo.length - 1) {
             this.disabled = true;
         }
-        checkStage();
+        if (stageNumber === 3) {
+            gridMode = true;
+            editStage = 'roomWalls';
+            drawButtons();
+        } else {
+            gridMode = false;
+        }
+
     }
 }
 
@@ -697,6 +840,7 @@ function createModel() {
     let heightInput;
     let basement = scene.house.basement;
     let outerWalls = scene.house.outerWalls;
+    let roomWalls = scene.house.roomWalls;
 
     if (basement) {
         //получение вершин
@@ -759,6 +903,7 @@ function createModel() {
                 createModel();
             }
         }
+
         outerWalls.vertices = basement.vertices;
         outerWalls.color = [0.8, 0, 0];
         outerWalls.translation = [0, 0, basement.height];
@@ -769,11 +914,23 @@ function createModel() {
             outerWalls.innerVertices = getInnerVertices(outerWalls.vertices, wallWidth);
         }
     }
+
+    if (roomWalls) {
+        for (let i = 1; i <= scene.house.floors; i++) {
+            scene.house.roomWalls[i] = [];
+        }
+        roomWalls.color = [0.4, 0.4, 0.4];
+        roomWalls.translation = outerWalls.translation;
+        roomWalls.height = outerWalls.height;
+        roomWalls.width = 0;
+        roomWalls.selectedFloor = 1;
+    }
     draw();
 }
 
 function clearObj(obj) {
     obj.vertices = [];
+    obj.innerVertices = [];
     obj.height = 0;
     obj.color = [0, 0, 0];
     obj.translation = [0, 0, 0];
@@ -785,6 +942,7 @@ function clearObj(obj) {
 /*---------------------------УСТАНОВКА ВИДА-----------------------------------------*/
 function set2D() {
     modelMatrix.setIdentity();
+    // modelMatrix.setScale(6,6,1);
     viewMatrix.setIdentity();
     perspectiveMatrix.setIdentity();
     normalMatrix.setIdentity();
@@ -792,7 +950,8 @@ function set2D() {
     normalMatrix.transpose();
     setMatrixUniforms();
     viewMode = '2d';
-    createModel();
+    // createModel();
+    draw();
     disableViewButtons();
 }
 
@@ -816,18 +975,40 @@ function set3D() {
 /*---------------------------СОЗДАНИЕ И РЕДАКТИРОВАНИЕ ФОРМЫ ЗДАНИЯ-----------------------------------------*/
 
 function drawButtons() {
-    let basement = scene.house.basement;
+    let obj = scene.house[editStage];
+
     let shapeBtn = document.querySelectorAll('.interview .currentStage button');
 
+    const select = document.querySelector('.interview .currentStage select');
+    const prevBtn = document.querySelector('.interview .previousStage');
     const nextBtn = document.querySelector('.interview .nextStage');
     const interactiveBtn = document.querySelectorAll('.editor__buttons button');
+
+    let fullVertices = false;
+    let gridStage = false;
+
+    if (editStage === 'basement' && obj.vertices.length > 0) {
+        fullVertices = true;
+    } else
+    if (editStage === 'roomWalls') {
+        gridStage = true;
+        let menu = document.querySelector('.interview .currentStage #floorNumber');
+        let floor = menu.options.selectedIndex + 1;
+        scene.house.roomWalls.selectedFloor = floor;
+        if (obj[floor].length > 0) {
+            fullVertices = true;
+        }
+        menu.onchange = function () {
+            drawButtons();
+        }
+    }
 
     if (shapeBtn) {
         let createBtn = shapeBtn[0];
         let editBtn = shapeBtn[1];
         let clearBtn = shapeBtn[2];
 
-        if (basement.vertices.length > 0) {
+        if (fullVertices) {
             createBtn.setAttribute('disabled', true);
             editBtn.removeAttribute('disabled');
         } else {
@@ -843,8 +1024,13 @@ function drawButtons() {
                         btn.setAttribute('disabled', true);
                     }
                 });
-                drawEditor(basement, createBtn);
+                if (gridStage) {
+                    gridMode = true;
+                    draw();
+                }
+                drawEditor(obj, createBtn);
                 createBtn.innerHTML = 'Закончить';
+
             } else {
                 createBtn.innerHTML = 'Построить';
                 shapeBtn.forEach(btn => {
@@ -852,12 +1038,18 @@ function drawButtons() {
                         btn.removeAttribute('disabled');
                     }
                 });
-                drawEditor(basement, createBtn);
+                if (gridStage) {
+                    gridMode = false;
+                }
                 gl.uniform1i(u_PickedVertex, -1);
-                draw();
+                drawEditor(obj, createBtn);
 
+                select.disabled = false;
+                if (editStage !== 'basement') {
+                    prevBtn.disabled = false;
+                }
                 nextBtn.disabled = false; //снимаем блокировку перехода на другую стадию при редактировании
-                interactiveBtn[0].disabled = false; //блокируем переход в 2д вид при редактировании
+                interactiveBtn[0].disabled = false; //снимаем блокировку перехода в 2д вид при редактировании
                 interactiveBtn[1].disabled = false; //снимаем блокировку перехода в 3д вид при редактировании
             }
             drawButtons();
@@ -870,7 +1062,11 @@ function drawButtons() {
                         btn.setAttribute('disabled', true);
                     }
                 });
-                drawEditor(basement, editBtn);
+                if (gridStage) {
+                    gridMode = true;
+                    draw();
+                }
+                drawEditor(obj, editBtn);
                 draw();
                 editBtn.innerHTML = 'Закончить';
 
@@ -881,20 +1077,38 @@ function drawButtons() {
                         btn.removeAttribute('disabled');
                     }
                 });
-                drawEditor(basement, editBtn);
-                draw();
+                if (gridStage) {
+                    gridMode = false;
+                    // draw();
+                }
+                drawEditor(obj, editBtn);
+                // draw();
 
+                select.disabled = false;
+                if (editStage !== 'basement') {
+                    prevBtn.disabled = false;
+                }
                 nextBtn.disabled = false; //снимаем блокировку перехода на другую стадию при редактировании
-                interactiveBtn[0].disabled = false; //блокируем переход в 2д вид при редактировании
+                interactiveBtn[0].disabled = false; //снимаем блокировку перехода в 2д вид при редактировании
                 interactiveBtn[1].disabled = false; //снимаем блокировку перехода в 3д вид при редактировании
             }
             drawButtons();
         }
 
         clearBtn.onclick = function () {
-            for (obj in scene.house) {
-                clearObj(scene.house[obj]);
+            if (editStage === 'basement') {
+                for (let obj in scene.house) {
+                    clearObj(scene.house[obj]);
+
+                    //исправить clearObj под roomWalls (сейчас чистит свойство вершины, которое удалено).
+                }
+            } else
+            if (editStage === 'roomWalls') {
+                let floor = obj.selectedFloor;
+                obj[floor] = [];
+                rightClick = 0;
             }
+
             draw();
             drawButtons();
         }
@@ -905,63 +1119,128 @@ function drawButtons() {
 function drawEditor(obj, btn) {
     editorMode = (!editorMode);
     let windowWidth = document.documentElement.clientWidth;
+
+    const select = document.querySelector('.interview .currentStage select');
+    const prevBtn = document.querySelector('.interview .previousStage');
     const nextBtn = document.querySelector('.interview .nextStage');
     const interactiveBtn = document.querySelectorAll('.editor__buttons button');
+
     if (editorMode) {
+        select.disabled = true;
+        prevBtn.disabled = true;
         nextBtn.disabled = true; //блокируем переход на другую стадию при редактировании
         interactiveBtn[0].disabled = true; //блокируем переход в 2д вид при редактировании
         interactiveBtn[1].disabled = true; //блокируем переход в 3д вид при редактировании
-
-        if (btn.innerHTML === 'Построить') {
-            if (windowWidth < 1024) {
-                canvas.ontouchstart = function (event) {
-                    let coor = getTouchCoord(event);
-                    let x = coor[0],
-                        y = coor[1];
-                    drawShapeDown(event, x, y, obj);
-                }
-            } else {
-                canvas.onmousedown = function (event) {
-                    let coor = getMouseCoord(event);
-                    let x = coor[0],
-                        y = coor[1];
-                    drawShapeDown(event, x, y, obj);
-                }
-                canvas.onmousemove = function (event) {
-                    let coor = getMouseCoord(event);
-                    let x = coor[0],
-                        y = coor[1];
-                    drawShapeMove(x, y, obj);
-                }
-            }
-        } else
-        if (btn.innerHTML === 'Редактировать') {
-            if (windowWidth < 1024) {                
-                canvas.ontouchstart = function (event) {
-                    let vertex = changeShapeDown(event);
-                    canvas.ontouchmove = function (event) {
+        if (obj === scene.house.basement) {
+            if (btn.innerHTML === 'Построить') {
+                if (windowWidth < 1024) {
+                    canvas.ontouchstart = function (event) {
                         let coor = getTouchCoord(event);
                         let x = coor[0],
                             y = coor[1];
-                        changeShapeMove(x, y, obj, vertex);
+                        drawShapeDown(event, x, y, obj);
                     }
-                    return false;
-                }
-                canvas.ontouchend = function () {
-                    drawClick = 0;
-                }
-            } else {
-                canvas.onmousedown = function (event) {
-                    let vertex = changeShapeDown(event);
+                } else {
+                    canvas.onmousedown = function (event) {
+                        let coor = getMouseCoord(event);
+                        let x = coor[0],
+                            y = coor[1];
+                        drawShapeDown(event, x, y, obj);
+                    }
                     canvas.onmousemove = function (event) {
                         let coor = getMouseCoord(event);
                         let x = coor[0],
                             y = coor[1];
-                        changeShapeMove(x, y, obj, vertex);
+                        drawShapeMove(x, y, obj);
                     }
                 }
-                canvas.onmouseup = function () {
-                    drawClick = 0;
+            } else
+            if (btn.innerHTML === 'Редактировать') {
+                if (windowWidth < 1024) {
+                    canvas.ontouchstart = function (event) {
+                        let vertex = changeShapeDown(event);
+                        canvas.ontouchmove = function (event) {
+                            let coor = getTouchCoord(event);
+                            let x = coor[0],
+                                y = coor[1];
+                            changeShapeMove(x, y, obj, vertex);
+                        }
+                        return false;
+                    }
+                    canvas.ontouchend = function () {
+                        drawClick = 0;
+                    }
+                } else {
+                    canvas.onmousedown = function (event) {
+                        let vertex = changeShapeDown(event);
+                        canvas.onmousemove = function (event) {
+                            let coor = getMouseCoord(event);
+                            let x = coor[0],
+                                y = coor[1];
+                            changeShapeMove(x, y, obj, vertex);
+                        }
+                    }
+                    canvas.onmouseup = function () {
+                        drawClick = 0;
+                    }
+                }
+            }
+        } else
+        if (obj === scene.house.roomWalls) {
+            if (btn.innerHTML === 'Построить') {
+                if (windowWidth < 1024) {
+                    canvas.ontouchstart = function (event) {
+                        // let coor = getTouchCoord(event);
+                        // let x = coor[0],
+                        //     y = coor[1];
+                        // drawShapeDown(event, x, y, obj);
+                    }
+                } else {
+                    let currentFloor = document.querySelector('.interview .currentStage #floorNumber').options.selectedIndex + 1;
+                    canvas.onmousedown = function (event) {
+                        let coor = getMouseCoord(event);
+                        let x = coor[0],
+                            y = coor[1];
+
+                        drawWallsDown(event, x, y, obj[currentFloor], leftClick, rightClick);
+                    }
+                    canvas.onmousemove = function (event) {
+                        let coor = getMouseCoord(event);
+                        let x = coor[0],
+                            y = coor[1];
+
+                        drawWallsMove(x, y, obj[currentFloor], leftClick, rightClick);
+                    }
+                }
+            } else
+            if (btn.innerHTML === 'Редактировать') {
+                if (windowWidth < 1024) {
+                    canvas.ontouchstart = function (event) {
+                        // let vertex = changeShapeDown(event);
+                        // canvas.ontouchmove = function (event) {
+                        //     let coor = getTouchCoord(event);
+                        //     let x = coor[0],
+                        //         y = coor[1];
+                        //     changeShapeMove(x, y, obj, vertex);
+                        // }
+                        // return false;
+                    }
+                    canvas.ontouchend = function () {
+                        drawClick = 0;
+                    }
+                } else {
+                    canvas.onmousedown = function (event) {
+                        // let vertex = changeShapeDown(event);
+                        // canvas.onmousemove = function (event) {
+                        //     let coor = getMouseCoord(event);
+                        //     let x = coor[0],
+                        //         y = coor[1];
+                        //     changeShapeMove(x, y, obj, vertex);
+                        // }
+                    }
+                    canvas.onmouseup = function () {
+                        drawClick = 0;
+                    }
                 }
             }
         }
@@ -1065,11 +1344,64 @@ function checkVertex(x, y, u_PickedVertex) {
     return pixels[3];
 }
 
+let leftClick = 0;
+let rightClick = 0;
+
+function drawWallsDown(event, x, y, obj) { //, leftClick, rightClick
+    //объявить снаружи
+    // let leftClick = 0, 
+    //     rightClick = 0;
+    if (event.which === 1 || (event.touches && event.touches.length === 1)) {
+        if (!obj[rightClick]) {
+            obj[rightClick] = [];
+        }
+
+        let len = obj[rightClick].length;
+        if (len / 2 % (leftClick + 1) === 0) {
+            obj[rightClick].pop();
+            obj[rightClick].pop();
+        }
+
+        obj[rightClick].push(x, y);
+        draw();
+        leftClick++;
+    } else if (event.which === 3 || (event.touches && event.touches.length === 2)) {
+        if (leftClick > 0) {
+            if (leftClick === 1) {
+                obj[rightClick] = [];
+                rightClick--;
+            } else {
+                obj[rightClick].pop();
+                obj[rightClick].pop();
+            }
+        }
+        leftClick = 0;
+        rightClick++;
+        console.log(obj);
+        draw();
+    }
+}
+
+function drawWallsMove(x, y, obj) { //, leftClick, rightClick
+    if (leftClick > 0) {
+        let len = obj[rightClick].length;
+
+        if (len / 2 % (leftClick + 1) === 0) {
+            obj[rightClick].pop();
+            obj[rightClick].pop();
+        }
+        obj[rightClick].push(x, y);
+        draw();
+    }
+}
+
+
 /*---------------------------КОНЕЦ СОЗДАНИЕ И РЕДАКТИРОВАНИЕ ФОРМЫ-----------------------------------------*/
 
 /*---------------------------ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-----------------------------------------*/
 function convertToCoor(val) {
-    return val * (canvas.width / 20) / (canvas.width / 2);
+    // return val * (canvas.width / 20) / (canvas.width / 2);
+    return val / 10;
 }
 
 function toDeg(rad) {
@@ -1093,29 +1425,7 @@ function getNormals(vertices, mode) {
             m.x = vertices[i + 2] - vertices[i];
             m.y = vertices[i + 3] - vertices[i + 1];
         }
-
-        if (m.x === 0) {
-            n.y = 0;
-            if (m.y > 0) {
-                n.x = -1;
-            } else {
-                n.x = 1;
-            }
-        } else if (m.y === 0) {
-            n.x = 0;
-            if (m.x > 0) {
-                n.y = 1;
-            } else {
-                n.y = -1;
-            }
-        } else {
-            if (m.x > 0) {
-                n.y = 1;
-            } else {
-                n.y = -1
-            }
-            n.x = -m.y * n.y / m.x;
-        }
+        n = getNormalVector(m);
         let k;
         if (mode === '2d') {
             k = 1;
@@ -1129,6 +1439,33 @@ function getNormals(vertices, mode) {
     return normals;
 }
 
+function getNormalVector(m) {
+    let n = {};
+    if (m.x === 0) {
+        n.y = 0;
+        if (m.y > 0) {
+            n.x = -1;
+        } else {
+            n.x = 1;
+        }
+    } else if (m.y === 0) {
+        n.x = 0;
+        if (m.x > 0) {
+            n.y = 1;
+        } else {
+            n.y = -1;
+        }
+    } else {
+        if (m.x > 0) {
+            n.y = 1;
+        } else {
+            n.y = -1
+        }
+        n.x = -m.y * n.y / m.x;
+    }
+    return n;
+}
+
 function flipNormals(normals) {
     for (let i = 0; i < normals.length; i++) {
         if (normals[i] !== 0) {
@@ -1137,6 +1474,7 @@ function flipNormals(normals) {
     }
 }
 
+//угол между двумя вектормаи
 function vectorAngle(v1, v2) {
     let vectorMult = v1[0] * v2[0] + v1[1] * v2[1];
     let absV1 = Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1]);
@@ -1148,6 +1486,7 @@ function vectorAngle(v1, v2) {
     return result;
 }
 
+//площадь многоугольника
 function getArea(vertices) {
     let s = 0;
     for (let i = 0; i < vertices.length - 2; i += 2) {
@@ -1156,6 +1495,7 @@ function getArea(vertices) {
     return s / 2;
 }
 
+//барицентр многоугольника
 function getPolygonCenter(vertices) {
     let x = 0,
         y = 0;
@@ -1169,23 +1509,24 @@ function getPolygonCenter(vertices) {
     return [x, y];
 }
 
-function checkSymmetry(vertices) {
-    let sumLeft = 0,
-        sumRight = 0;
-    for (let i = 0; i < vertices.length; i += 2) {
-        if (vertices[i] > 0) {
-            sumLeft += vertices[i];
-        } else {
-            sumRight += vertices[i];
-        }
-    }
-    if (Math.abs(sumRight) <= Math.abs(sumLeft) * 1.1 && Math.abs(sumRight) >= Math.abs(sumLeft) * 0.9) {
-        return true;
-    } else {
-        return false;
-    }
-}
+/* function checkSymmetry(vertices) {
+//     let sumLeft = 0,
+//         sumRight = 0;
+//     for (let i = 0; i < vertices.length; i += 2) {
+//         if (vertices[i] > 0) {
+//             sumLeft += vertices[i];
+//         } else {
+//             sumRight += vertices[i];
+//         }
+//     }
+//     if (Math.abs(sumRight) <= Math.abs(sumLeft) * 1.1 && Math.abs(sumRight) >= Math.abs(sumLeft) * 0.9) {
+//         return true;
+//     } else {
+//         return false;
+//     }
+// } */
 
+//масштабирование многоугольника внутрь
 function getInnerVertices(vertices, width) {
     let result = [];
     let innerVertices = [];
@@ -1204,10 +1545,12 @@ function getInnerVertices(vertices, width) {
     result = getIntro(vertices[len - 4], vertices[len - 3], vertices[0], vertices[1], vertices[2], vertices[3], width, round);
     innerVertices.unshift(result[0], result[1]);
     innerVertices.push(result[0], result[1]);
-
+    console.log(innerVertices);
+    console.log(vertices);
+    console.log(width);
     return innerVertices;
 }
-
+//нахождение точки, лежащей на биссектрисе
 function getIntro(x1, y1, x2, y2, x3, y3, width, round) { //round - обход, left - против часовой, right - по часовой
     let a = [],
         b = [],
@@ -1228,20 +1571,37 @@ function getIntro(x1, y1, x2, y2, x3, y3, width, round) { //round - обход, 
         c[1] = -c[1];
     }
 
-    let cos = vectorAngle(a, b);
-    let sin = Math.sqrt((1 - cos) / 2);
-    width = width / sin;
-    k = width * Math.sqrt(2 / (Math.pow(c[0], 2) + Math.pow(c[1], 2)));
-    d.push(k * c[0], k * c[1]);
+    let cos2A = vectorAngle(a, b);
+    // let sinA;
+    // if (cos2A !== 0) {
+    //     sinA = Math.sqrt((1 - cos2A) / 2);
+    //     width = width / sinA;
+    // }
+
+    // k = width * Math.sqrt(2 / (Math.pow(c[0], 2) + Math.pow(c[1], 2)));
+    // d.push(k * c[0], k * c[1]);
+    d = setVectorLength(cos2A, width, c);
     d[0] = d[0] + x2;
     d[1] = d[1] + y2;
     return d;
 }
 
+function setVectorLength(cos, width, vec) {
+    let sinA, k, result = [];
+    if (cos !== 0) {
+        sinA = Math.sqrt((1 - cos) / 2);
+        width = width / sinA;
+    }
+    k = width * Math.sqrt(2 / (Math.pow(vec[0], 2) + Math.pow(vec[1], 2)));
+    result.push(k * vec[0], k * vec[1]);
+    return result;
+}
+
+//длина вектора
 function absVector(a) {
     return Math.sqrt(a[0] * a[0] + a[1] * a[1]);
 }
-
+//координаты клика
 function getMouseCoord(event) {
     let x = event.clientX;
     let y = event.clientY;
@@ -1256,7 +1616,40 @@ function getMouseCoord(event) {
 
     return [x, y];
 }
+//координаты клика по заштрихованному полю
+function getRoundCoord(event) {
+    let coor = getMouseCoord(event);
+    let x = coor[0],
+        y = coor[1],
+        vertical = scene.house.hatching.vertical,
+        horizontal = scene.house.hatching.horizontal,
+        // bound = scene.house.hatching.bound,
+        // innerVertices = scene.house.outerWalls.innerVertices,
+        dx = 999999999,
+        dy = 999999999;
+    for (let i = 0; i < vertical.length; i += 4) {
+        if (Math.abs(x - vertical[i]) < Math.abs(dx)) {
+            dx = x - vertical[i];
+        }
+    }
+    for (let i = 0; i < horizontal.length; i += 4) {
+        if (Math.abs(y - horizontal[i + 1]) < Math.abs(dy)) {
+            dy = y - horizontal[i + 1];
+        }
+    }
+    // for (let i=0; i<bound.length; i+=2) {
+    //     if (Math.abs(y-bound[i+1]) < Math.abs(dy) && Math.abs(x-bound[i])<Math.abs(dx))
+    //     {
+    //         dx = x-bound[i];
+    //         dy = y-bound[i+1];
+    //     }
+    // }
+    x -= dx;
+    y -= dy;
 
+    return [Number(x.toFixed(5)), Number(y.toFixed(5))];
+}
+//координаты касания пальцем
 function getTouchCoord(event) {
     let x = event.touches[0].clientX;
     let y = event.touches[0].clientY;
@@ -1271,6 +1664,120 @@ function getTouchCoord(event) {
 
     return [x, y];
 }
+//получение координат точек для штриховки
+function getStripeCoor(vertices, spacing, angle) {
+    const maxNodes = 1000,
+        farAway = 999999999;
+    let spanMin = farAway,
+        spanMax = -farAway,
+        theCos, theSin, nodeX = [],
+        x, y, a, b, newX, stripeY,
+        spanStart, spanEnd, nodeCount, result = [];
+
+    theCos = Math.cos(toRad(angle)).toFixed(5);
+    theSin = Math.sin(toRad(angle)).toFixed(5);
+
+    for (let i = 0; i < vertices.length; i += 2) {
+        x = vertices[i];
+        y = vertices[i + 1];
+        y = y * theCos - x * theSin;
+        if (spanMin > y) spanMin = y;
+        if (spanMax < y) spanMax = y;
+    }
+
+    spanStart = Math.floor(spanMin / spacing) - 1;
+    spanEnd = Math.floor(spanMax / spacing) + 1;
+    // spanStart = Math.floor(spanMin / spacing);
+    // spanEnd = Math.floor(spanMax / spacing);
+
+    for (let step = spanStart; step <= spanEnd; step++) {
+        nodeCount = 0;
+        stripeY = spacing * step;
+        for (let j = 0; j < vertices.length - 2; j += 2) {
+            a = vertices[j];
+            b = vertices[j + 1];
+            x = vertices[j + 2];
+            y = vertices[j + 3];
+
+            newX = a * theCos + b * theSin;
+            b = b * theCos - a * theSin;
+            a = newX;
+            newX = x * theCos + y * theSin;
+            y = y * theCos - x * theSin;
+            x = newX;
+
+            if (b < stripeY && y >= stripeY || b >= stripeY && y < stripeY) {
+                if (nodeCount >= maxNodes) return null;
+                nodeX[nodeCount++] = a + (x - a) * (stripeY - b) / (y - b);
+            }
+        }
+        nodeX.sort(function (a, b) {
+            return a - b;
+        });
+
+        for (let i = 0; i < nodeCount; i++) {
+            a = nodeX[i] * theCos - stripeY * theSin;
+            b = stripeY * theCos + nodeX[i] * theSin;
+            result.push(Number(a.toFixed(5)), Number(b.toFixed(5)));
+        }
+    }
+
+    return result;
+}
+//вершины, лежащие на сторонах многоугольника и не попавшие в vertical/horizontal
+function getBoundStripeCoor(vertices) {
+    let vertical = scene.house.hatching.vertical,
+        horizontal = scene.house.hatching.horizontal,
+        bound = [],
+        x1, y1, x2, y2, x, y, k;
+    for (let i = 0; i < vertices.length - 4; i += 2) {
+        x1 = vertices[i];
+        y1 = vertices[i + 1];
+        x2 = vertices[i + 2];
+        y2 = vertices[i + 3];
+
+        //проверка вертикалей
+        if (x2 != x1) {
+            for (let j = 0; j < vertical.length; j += 4) {
+                x = vertical[j];
+                if (x1 <= x && x <= x2 || x2 <= x && x <= x1) {
+                    y = -((x1 * x2 - y1 * x2) + x * (y1 - y2)) / (x2 - x1);
+
+                    if (!(vertical[j + 1] === y || vertical[j + 3] === y)) {
+                        k = horizontal.indexOf(y);
+                        if (k === -1) {
+                            bound.push(x, y);
+                        } else
+                        if (!(horizontal[k - 1] === x || horizontal[k + 1] === x)) {
+                            bound.push(x, y);
+                        }
+                    }
+                }
+            }
+        }
+        //проверка горизонталей
+        if (y2 != y1) {
+            for (let j = 0; j < horizontal.length; j += 4) {
+                y = horizontal[j + 1];
+                if (y1 <= y && y <= y2 || y2 <= y && y <= y1) {
+                    x = -((x1 * x2 - y1 * x2) + y * (x2 - x1)) / (y1 - y2);
+                    if (!(horizontal[j] === x || horizontal[j + 2] === x)) {
+                        k = vertical.indexOf(x);
+                        if (k === -1) {
+                            bound.push(x, y);
+                        } else
+                        if (!(vertical[k + 1] === y || vertical[k + 3] === y)) {
+                            bound.push(x, y);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return bound;
+}
+
+function pointInPolygon(vertices, vertex) {}
 /*---------------------------КОНЕЦ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-----------------------------------------*/
 
 
@@ -1366,7 +1873,7 @@ function initEventHandlers(canvas, currentAngle) {
         let dragging = false;
         let lastX, lastY;
         let windowWidth = document.documentElement.clientWidth;
-        let rotateDown = function(x,y) {
+        let rotateDown = function (x, y) {
             let rect = canvas.getBoundingClientRect();
             if (rect.left <= x && x < rect.right && rect.top <= y && y < rect.bottom) {
                 lastX = x;
@@ -1374,7 +1881,7 @@ function initEventHandlers(canvas, currentAngle) {
                 dragging = true;
             }
         }
-        let rotateMove = function (x,y) {
+        let rotateMove = function (x, y) {
             if (dragging) {
                 let factorX = 1 / 120; // The rotation ratio
                 let factorY = 0.005; // The rotation ratio
@@ -1397,19 +1904,19 @@ function initEventHandlers(canvas, currentAngle) {
             setMatrixUniforms();
             draw();
         }
-        if (windowWidth<1024) {
-            canvas.ontouchstart = function(ev) {
+        if (windowWidth < 1024) {
+            canvas.ontouchstart = function (ev) {
                 let x = ev.touches[0].clientX;
                 let y = ev.touches[0].clientY;
-                rotateDown(x,y);
+                rotateDown(x, y);
 
-                canvas.ontouchmove = function(ev) {
+                canvas.ontouchmove = function (ev) {
                     let x = ev.touches[0].clientX;
                     let y = ev.touches[0].clientY;
-                    rotateMove(x,y);
+                    rotateMove(x, y);
                 }
             }
-            canvas.ontouchend = function() {
+            canvas.ontouchend = function () {
                 canvas.ontouchmove = function () {
                     return false;
                 }
@@ -1419,12 +1926,12 @@ function initEventHandlers(canvas, currentAngle) {
             canvas.onmousedown = function (ev) {
                 let x = ev.clientX;
                 let y = ev.clientY;
-                rotateDown(x,y);
-    
+                rotateDown(x, y);
+
                 canvas.onmousemove = function (ev) {
                     let x = ev.clientX;
                     let y = ev.clientY;
-                    rotateMove(x,y);
+                    rotateMove(x, y);
                 }
             }
             canvas.onmouseup = function () {
